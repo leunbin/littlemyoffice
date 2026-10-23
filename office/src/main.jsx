@@ -15,12 +15,16 @@ function Icon({type, ...props}) {
     exit: 'M9 4H4v16h5m6-12 4 4-4 4m-6-4h10',
     reset: 'M3 10a9 9 0 1 1 2 8M3 4v6h6',
     pause: 'M9 5v14M15 5v14',
+    expand: 'M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5',
+    collapse: 'M3 8h5V3m8 0v5h5M8 21v-5H3m13 5v-5h5',
   };
   return <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}><path d={paths[type]}/></svg>;
 }
 
 function App() {
   const canvas = useRef(), scene = useRef(), speed = useRef(1), paused = useRef(false);
+  const viewport = useRef(), expandButton = useRef();
+  const [expanded, setExpanded] = useState(false);
   const [, refresh] = useState(0);
   const [rate, setRate] = useState(1), [pause, setPause] = useState(false);
   const [tab, setTab] = useState('schedule'), [selected, setSelected] = useState(null), [error, setError] = useState('');
@@ -45,6 +49,49 @@ function App() {
     handle = requestAnimationFrame(animate);
     return () => { cancelAnimationFrame(handle); scene.current?.dispose(); };
   }, []);
+
+  useEffect(() => {
+    const syncFullscreen = () => setExpanded(document.fullscreenElement === viewport.current);
+    const exitFallback = e => {
+      if (e.key === 'Escape' && !document.fullscreenElement) setExpanded(false);
+    };
+    document.addEventListener('fullscreenchange', syncFullscreen);
+    document.addEventListener('keydown', exitFallback);
+    return () => {
+      document.removeEventListener('fullscreenchange', syncFullscreen);
+      document.removeEventListener('keydown', exitFallback);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    viewport.current?.querySelector('[data-exit-fullscreen]')?.focus();
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      expandButton.current?.focus();
+    };
+  }, [expanded]);
+
+  async function toggleFullscreen() {
+    if (document.fullscreenElement === viewport.current) {
+      await document.exitFullscreen().catch(() => {});
+    } else if (expanded) {
+      setExpanded(false);
+    } else {
+      try {
+        if (!viewport.current.requestFullscreen || !document.fullscreenEnabled) {
+          setExpanded(true);
+          return;
+        }
+        await viewport.current.requestFullscreen();
+      } catch {
+        // Browsers without native fullscreen still get an expanded, viewport-filling view.
+        setExpanded(true);
+      }
+    }
+  }
 
   const present = sim.employees.filter(e => e.visible).length;
   const occupied = sim.schedule.filter(m => ['active', 'gathering'].includes(m.status)).length;
@@ -80,11 +127,22 @@ function App() {
             <span>회의실 <strong>{occupied}/2</strong></span>
             <span className="elapsed">경과 <strong>{elapsed(sim.time)}</strong></span>
           </div>
-          <button className="text-button" disabled={!!error} onClick={() => scene.current?.reset()}><Icon type="reset"/>시점 초기화</button>
+          <div className="view-actions">
+            <button className="text-button" disabled={!!error} onClick={() => scene.current?.reset()}><Icon type="reset"/>시점 초기화</button>
+            <button ref={expandButton} className="text-button" disabled={!!error} aria-label="3D 사무실 전체화면" aria-pressed={expanded} onClick={toggleFullscreen}><Icon type="expand"/>전체화면</button>
+          </div>
         </div>
 
-        <div className="viewport">
+        <div ref={viewport} className={`viewport${expanded ? ' is-expanded' : ''}`}>
           <canvas ref={canvas} aria-label="직원 26명과 두 회의실, 대표실, 탕비실이 있는 3D 사무실"/>
+          {expanded && <>
+            <div className="expanded-controls" role="group" aria-label="전체화면 조작">
+              <button className="text-button" disabled={sim.mode === 'leaving'} onClick={changeAttendance}><Icon type={sim.mode === 'idle' ? 'play' : 'exit'}/>{sim.mode === 'idle' ? '출근하기' : sim.mode === 'leaving' ? '퇴근 중…' : '퇴근하기'}</button>
+              <button className="text-button" onClick={() => scene.current?.reset()}><Icon type="reset"/>시점 초기화</button>
+              <button data-exit-fullscreen className="text-button" onClick={toggleFullscreen}><Icon type="collapse"/>전체화면 닫기</button>
+            </div>
+            <p className="expanded-hint">휠 버튼 드래그로 이동 · 드래그로 회전 · 스크롤로 확대 · Esc로 닫기</p>
+          </>}
           {error ? <div className="notice error" role="alert"><h2>화면을 열 수 없습니다</h2><p>{error}</p></div> : sim.mode === 'idle' && <div className="notice"><h2>{sim.logs.length ? '모두 퇴근했습니다' : '출근 전입니다'}</h2><p>상단의 출근하기를 누르면 직원들이 입장합니다.</p></div>}
           {person && <div className="person-pop">
             <button aria-label="직원 정보 닫기" onClick={() => setSelected(null)}>×</button>
@@ -100,7 +158,7 @@ function App() {
             {[1, 2, 4].map(n => <button key={n} disabled={!!error} className={rate === n ? 'chosen' : ''} aria-pressed={rate === n} aria-label={`${n}배속`} onClick={() => { speed.current = n; setRate(n); }}>{n}×</button>)}
           </div>
         </div>
-        <p className="scene-hint">드래그로 회전 · 스크롤로 확대 · 직원 클릭으로 상태 확인</p>
+        <p className="scene-hint">휠 버튼 드래그로 이동 · 드래그로 회전 · 스크롤로 확대 · 직원 클릭으로 상태 확인</p>
       </section>
 
       <aside className="side-panel" aria-label="회의 및 직원 정보">

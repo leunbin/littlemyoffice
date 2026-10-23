@@ -9,6 +9,10 @@ export function createOffice(canvas,sim,onSelect){
   const scene=new THREE.Scene();scene.fog=new THREE.Fog('#f1e9eb',80,130);
   const camera=new THREE.PerspectiveCamera(36,1,0.1,180);const initial=[36,39,43];camera.position.set(...initial);
   const controls=new OrbitControls(camera,canvas);controls.target.set(0,0,0);controls.enableDamping=true;controls.maxPolarAngle=Math.PI/2.35;controls.minDistance=20;controls.maxDistance=85;controls.maxAzimuthAngle=Math.PI/2;controls.minAzimuthAngle=-Math.PI/2;
+  controls.mouseButtons={LEFT:THREE.MOUSE.ROTATE,MIDDLE:THREE.MOUSE.PAN,RIGHT:THREE.MOUSE.PAN};
+  controls.screenSpacePanning=false;
+  const preventMiddleScroll=e=>{if(e.button===1)e.preventDefault();};
+  canvas.addEventListener('mousedown',preventMiddleScroll);
   scene.add(new THREE.HemisphereLight(0xfffafb,0xbdaeb9,2.7));
   const sun=new THREE.DirectionalLight(0xfff4ec,3);sun.position.set(-15,30,15);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-29,right:29,top:29,bottom:-29});sun.shadow.normalBias=0.04;scene.add(sun);
   const materials=new Map();
@@ -80,8 +84,8 @@ export function createOffice(canvas,sim,onSelect){
     const bubble=speech(e);group.add(bubble.sprite);group.traverse(o=>o.userData.employee=e);scene.add(group);return {group,body,legs,arms,bubble};
   });
   const ray=new THREE.Raycaster(),pointer=new THREE.Vector2();let down;
-  const pointerDown=e=>{down=[e.clientX,e.clientY];};
-  const pointerUp=e=>{if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>6)return;const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(pointer,camera);const hits=ray.intersectObjects(avatars.map(a=>a.group),true).filter(h=>h.object.userData.employee?.visible);if(hits[0])onSelect(hits[0].object.userData.employee.id);};
+  const pointerDown=e=>{down=e.button===0?[e.clientX,e.clientY]:null;};
+  const pointerUp=e=>{if(e.button!==0||!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>6)return;const r=canvas.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(pointer,camera);const hits=ray.intersectObjects(avatars.map(a=>a.group),true).filter(h=>h.object.userData.employee?.visible);if(hits[0])onSelect(hits[0].object.userData.employee.id);};
   canvas.addEventListener('pointerdown',pointerDown);canvas.addEventListener('pointerup',pointerUp);
   function resize(){const r=canvas.parentElement.getBoundingClientRect();renderer.setSize(r.width,r.height,false);camera.aspect=r.width/r.height;camera.updateProjectionMatrix();}
   const observer=new ResizeObserver(resize);observer.observe(canvas.parentElement);resize();
@@ -96,5 +100,5 @@ export function createOffice(canvas,sim,onSelect){
       else if(['회의 중','회의 대기'].includes(e.state)){const cx=ROOMS.find(r=>Math.abs(r.x-e.pos[0])<3.8)?.x??0;const seat=e.meetingSeat??e.seat;a.body.rotation.y=seat===5?0:seat===4?Math.PI:(e.pos[0]<cx?Math.PI/2:-Math.PI/2);}
       a.body.position.y=seated?-0.12:0;a.legs.forEach((l,j)=>{l.rotation.x=seated?-1.35:moving?Math.sin(time*10+j*Math.PI)*0.5:0;});a.arms.forEach((arm,j)=>{arm.rotation.x=moving?Math.sin(time*10+j*Math.PI+Math.PI)*0.4:seated?-0.65+Math.sin(time*5+j)*0.06:Math.sin(time*1.7+i)*0.04;});a.bubble.update();
     });controls.update();renderer.render(scene,camera);
-  },reset(){camera.position.set(...initial);controls.target.set(0,0,0);},dispose(){observer.disconnect();canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);controls.dispose();const allMaterials=new Set();scene.traverse(o=>{o.geometry?.dispose();if(o.material)allMaterials.add(o.material);});allMaterials.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();}};
+  },reset(){camera.position.set(...initial);controls.target.set(0,0,0);},dispose(){observer.disconnect();canvas.removeEventListener('mousedown',preventMiddleScroll);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);controls.dispose();const allMaterials=new Set();scene.traverse(o=>{o.geometry?.dispose();if(o.material)allMaterials.add(o.material);});allMaterials.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();}};
 }
