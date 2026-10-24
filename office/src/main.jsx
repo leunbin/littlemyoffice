@@ -105,6 +105,8 @@ function App() {
   const person = [...sim.employees,...sim.visitors].find(e => e.id === selected);
   const status = error ? '화면 오류' : sim.mode === 'idle' ? (sim.logs.length ? '퇴근 완료' : '출근 전') : pause ? '일시정지' : sim.mode === 'leaving' ? '퇴근 중' : '근무 중';
 
+  function chooseFloor(floor){sim.activeFloor=floor;setBuilding(false);scene.current?.reset();}
+
   function changeAttendance() {
     paused.current = false;
     setPause(false);
@@ -139,13 +141,18 @@ function App() {
           </div>
         </div>
 
-        <div className="floor-bar" aria-label="층 선택"><button aria-pressed={building} onClick={()=>setBuilding(v=>!v)}>건물 전체 보기</button>{FLOOR_NAMES.map((name,i)=><button key={i} aria-pressed={!building&&sim.activeFloor===i} onClick={()=>{sim.activeFloor=i;setBuilding(false);sim.followId=null;scene.current?.reset();}}>{name}<small>{sim.employees.filter(e=>e.visible&&e.floor===i).length}명</small></button>)}<button onClick={()=>{try{saveSimulation(sim);setSaveMessage('저장했습니다');}catch{setSaveMessage('저장 공간을 확인해 주세요');}}}>저장</button><span role="status">{saveMessage}</span></div>
+        <div className="floor-bar" aria-label="층 선택"><button aria-pressed={building} onClick={()=>setBuilding(v=>!v)}>건물 전체 보기</button>{FLOOR_NAMES.map((name,i)=><button key={i} aria-pressed={!building&&sim.activeFloor===i} onClick={()=>chooseFloor(i)}>{name}<small>{sim.employees.filter(e=>e.visible&&e.floor===i).length}명</small></button>)}<button onClick={()=>{try{saveSimulation(sim);setSaveMessage('저장했습니다');}catch{setSaveMessage('저장 공간을 확인해 주세요');}}}>저장</button><span role="status">{saveMessage}</span></div>
         <div ref={viewport} className={`viewport${expanded ? ' is-expanded' : ''}`}>
           {building&&<div className="building-caption"><strong>우리 회사 · 전체 층</strong><span>1·2·3층 도면을 겹쳐 보고, 원하는 층을 클릭해 들어가세요.</span><button onClick={()=>setBuilding(false)}>층별 보기로 돌아가기</button></div>}
 
           <canvas ref={canvas} aria-label="3층 회사와 직원 및 면접 지원자가 있는 3D 사무실"/>
           {expanded && <>
             <div className="expanded-controls" role="group" aria-label="전체화면 조작">
+              <div className="expanded-floor-nav" role="group" aria-label="전체화면 층 선택">
+                <button aria-pressed={building} onClick={()=>setBuilding(true)}>건물 전체 보기</button>
+                {FLOOR_NAMES.map((name,floor)=><button key={floor} title={name} aria-pressed={!building&&sim.activeFloor===floor} onClick={()=>chooseFloor(floor)}>{floor+1}층</button>)}
+              </div>
+              <span className="expanded-floor-label">{building?'전체 건물':FLOOR_NAMES[sim.activeFloor]}</span>
               <button className="text-button" disabled={sim.mode === 'leaving'} onClick={changeAttendance}><Icon type={sim.mode === 'idle' ? 'play' : 'exit'}/>{sim.mode === 'idle' ? '출근하기' : sim.mode === 'leaving' ? '퇴근 중…' : '퇴근하기'}</button>
               <button className="text-button" onClick={() => scene.current?.reset()}><Icon type="reset"/>시점 초기화</button>
               <button data-exit-fullscreen className="text-button" onClick={toggleFullscreen}><Icon type="collapse"/>전체화면 닫기</button>
@@ -211,7 +218,7 @@ function BusinessPanel({sim,onSelect,tab,setTab}){
  {tab==='overview'&&<><div className="pc-stats"><span>직원<strong>{sim.employees.filter(e=>e.visible).length} / {sim.employees.length}</strong></span><span>오늘 면접<strong>{sim.interviews.filter(m=>m.status==='완료').length} / {sim.interviews.length}</strong></span></div><h3>지금 진행 중인 업무</h3>{sim.schedule.filter(m=>['active','gathering'].includes(m.status)).map(m=><article key={m.id}><strong>{getMeetingName(m)} · {states[m.status]}</strong><p>{m.floor+1}층 회의실 {m.room===0?'A':'B'}</p><div className="people-chips">{sim.employees.filter(e=>m.kind==='leadership'?['대표','팀장'].includes(e.role):e.dept===m.dept).map(e=><button key={e.id} onClick={()=>onSelect(e.id)}>{e.name}</button>)}</div></article>)}{sim.interviews.filter(m=>!['예정','완료','취소'].includes(m.status)).map(m=><article key={m.id}><strong>{m.name} · {m.status}</strong><p>{DEPTS[m.dept].name} 지원 · 1층 회의실 A</p><button onClick={()=>onSelect(m.visitor)}>지원자 따라가기</button></article>)}<h3>안내 데스크</h3>{sim.employees.filter(e=>e.stationary).map(e=><button className="work-row" key={e.id} onClick={()=>onSelect(e.id)}><strong>{e.name} · 상주 안내 담당</strong><small>{e.state}</small></button>)}<h3>인사팀 업무</h3>{sim.employees.filter(e=>e.dept===1).map(e=><button className="work-row" key={e.id} onClick={()=>onSelect(e.id)}><strong>{e.name}</strong><small>{e.state}</small></button>)}</>}
  {tab==='hiring'&&<><p className="pc-help">매일 1~3건 · 방문객 안내 후 대표·인사팀장·채용 부서 팀장이 면접합니다. 인사팀이 먼저 마중 나오고, 면접관은 기존 일정을 마친 뒤 합류합니다.</p>{sim.interviews.length===0&&<p>출근하면 오늘의 면접이 배정됩니다.</p>}{sim.interviews.map(m=><article key={m.id}><div className="article-top"><strong>{m.name} · {DEPTS[m.dept].name}</strong><span>{m.status}</span></div><p>{businessTime(m.at)} 예약 · 1층 회의실 A</p>{m.notifiedAt!=null&&<p>안내 데스크 접수 · {businessTime(m.notifiedAt)} 인사팀 연락 완료</p>}{m.waitReason&&<p className="interview-wait">{m.waitReason}</p>}<details><summary>가상 지원자 이력서</summary><p>{m.experience}</p><p>{m.skills}</p><p>지원 동기: 팀과 함께 제품을 개선하고 싶습니다.</p></details><p>면접관: 대표 · 인사팀장 · {DEPTS[m.dept].name} 팀장</p>{m.escort!=null&&<button onClick={()=>onSelect(m.escort)}>안내 담당자 따라가기</button>}{m.visitor!=null&&<button disabled={!sim.visitors.find(v=>v.id===m.visitor)?.visible} onClick={()=>onSelect(m.visitor)}>지원자 따라가기</button>}{m.result&&<p>{m.result}</p>}</article>)}</>}
  {tab==='projects'&&<>{sim.projects.length===0&&<p>출근하면 프로젝트가 시작됩니다.</p>}{sim.projects.map(p=><article key={p.id}><strong>{p.name}</strong><p>{p.teams.map((d,i)=>`${i===p.stage?'▶ ':''}${DEPTS[d].name}`).join(' → ')}</p><label>{p.stage>=p.teams.length?'출시 완료':`${DEPTS[p.teams[p.stage]].name} 작업 중 · ${Math.floor(p.progress)}%`}<progress value={p.stage>=p.teams.length?100:p.progress} max="100"/></label><p>{p.stage<p.teams.length?'다음 팀은 현재 팀의 결과물을 기다리고 있습니다.':'모든 팀의 작업이 완료되었습니다.'}</p><div className="people-chips">{sim.employees.filter(e=>e.dept===p.teams[p.stage]).map(e=><button key={e.id} onClick={()=>onSelect(e.id)}>{e.name}</button>)}</div>{p.history.map((h,i)=><p key={i}>DAY {h.day} {businessTime(h.time)} · {DEPTS[h.from].name} → {h.to==null?'출시':DEPTS[h.to].name} 인계</p>)}</article>)}</>}
- {tab==='events'&&<>{sim.events.map(e=><article key={e.name}><strong>{businessTime(e.at)} · {e.name}</strong><p>{e.status}</p></article>)}<p className="pc-help">층 버튼으로 이동 · 직원을 클릭해 따라가기 · Esc로 추적 해제. 10초마다 자동 저장됩니다.</p></>}
+ {tab==='events'&&<>{sim.events.map(e=><article key={e.name}><strong>{businessTime(e.at)} · {e.name}</strong><p>{e.status}</p>{e.kind==='tour'&&<>{e.currentStop&&<p>{e.currentStop} · {Math.min((e.step??0)+1,e.totalStops||6)}/{e.totalStops||6}</p>}{e.waitReason&&<p>{e.waitReason}</p>}<div className="people-chips">{(e.members||[]).map(id=>{const person=sim.employees.find(p=>p.id===id);return person&&<button key={id} onClick={()=>onSelect(id)}>{person.name}{id===e.guide?' · 안내':' · 참여'}</button>;})}</div></>}</article>)}<p className="pc-help">층 버튼으로 이동 · 직원을 클릭해 따라가기 · Esc로 추적 해제. 10초마다 자동 저장됩니다.</p></>}
  </div></section>;
 }
 

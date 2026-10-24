@@ -1,4 +1,4 @@
-import {TEAM_CENTERS,TEAM_SEATS,ROOM_SEATS,CEO_HOME,ENTRY,PANTRY_SPOTS,ROOMS,LOBBY,RESTROOMS,pantrySpotsForFloor,planRoute} from './layout.js';
+import {TEAM_CENTERS,TEAM_SEATS,ROOM_SEATS,CEO_HOME,ENTRY,PANTRY_SPOTS,ROOMS,LOBBY,RESTROOMS,TOUR_STOPS,pantrySpotsForFloor,planRoute} from './layout.js';
 export {ROOM_SEATS} from './layout.js';
 export const FLOOR_NAMES=['1F · 고객과 만나는 공간','2F · 제품을 만드는 공간','3F · 경영과 휴식'];
 export const DEPT_FLOORS=[0,0,2,1,1,1,2];
@@ -33,7 +33,7 @@ function log(s,message){s.logs.unshift({time:s.time,message});s.logs=s.logs.slic
 export function route(e,target,floor=e.homeFloor??0){e.path=e.floor===floor?planRoute(e.pos,target,floor):[...planRoute(e.pos,LOBBY.elevator,e.floor),[...LOBBY.elevator,floor],...planRoute(LOBBY.elevator,target,floor)];}
 function work(s,e){e.state=e.stationary?receptionistStatus(s,e):e.role==='대표'?'경영 현황 확인 중':e.role==='팀장'?'팀 업무 검토 중':DEPTS[e.dept].tasks[Math.floor(s.random()*4)];e.next=s.time+8+s.random()*15;}
 export function startDay(s){if(s.mode!=='idle')return;s.mode='working';s.time=0;s.day=(s.day||0)+1;s.followId=null;s.schedule=makeSchedule(s.random);s.logs=[];s.employees.forEach((e,i)=>{e.visible=false;e.floor=0;e.pos=[...ENTRY];e.path=[];e.state='출근 대기';e.next=i*0.5;e.visiting=null;e.meetingSeat=null;e.meetingKind=null;e.assignment=null;e.pendingInterview=null;e.restroom=null;e.restroomPreference=e.id%2;e.restroomAt=100+(e.id%9)*17+s.random()*60;});setupBusinessDay(s);log(s,'좋은 아침! 팀별 회의 1회와 대표·팀장 회의가 배정됐어요.');}
-export function endDay(s){if(s.mode!=='working')return;s.mode='leaving';s.schedule.forEach(m=>{if(m.status!=='done')m.status='cancelled';});s.interviews.forEach(m=>{if(m.status!=='완료')m.status='취소';});s.visitors.forEach(e=>{if(e.visible){e.state='퇴장 중';route(e,ENTRY,0);}});s.employees.forEach(e=>{e.assignment=null;e.pendingInterview=null;e.restroom=null;});s.employees.forEach(e=>{if(e.visible){e.state='퇴근 중';route(e,ENTRY,0);}else e.state='퇴근';});log(s,'오늘도 수고했어요. 모든 직원이 퇴근합니다.');}
+export function endDay(s){if(s.mode!=='working')return;s.mode='leaving';s.schedule.forEach(m=>{if(m.status!=='done')m.status='cancelled';});s.interviews.forEach(m=>{if(m.status!=='완료')m.status='취소';});s.events.forEach(event=>{if(event.status!=='완료')event.status='취소';});s.visitors.forEach(e=>{if(e.visible){e.state='퇴장 중';route(e,ENTRY,0);}});s.employees.forEach(e=>{e.assignment=null;e.pendingInterview=null;e.restroom=null;});s.employees.forEach(e=>{if(e.visible){e.state='퇴근 중';route(e,ENTRY,0);}else e.state='퇴근';});log(s,'오늘도 수고했어요. 모든 직원이 퇴근합니다.');}
 export function tick(s,dt){
   if(s.mode==='idle')return;s.time+=dt;
   if(s.mode==='working'){
@@ -86,7 +86,7 @@ function setupBusinessDay(s){
  s.visitors=[];
  s.interviews=Array.from({length:1+Math.min(2,Math.floor(s.random()*3))},(_,i)=>({id:`d${s.day}-i${i}`,name:['이지우','박수아','최민재'][i],dept:[3,5,0][i],at:100+i*180,status:'예정',experience:['웹 서비스 개발 3년','제품 디자인 2년','고객 제안 및 협업 4년'][i],skills:['React · TypeScript · 협업','Figma · UX 리서치','고객 관리 · 제안서'][i]}));
  if(!s.projects.length)s.projects=[{id:1,name:'회사 홈페이지 개편',teams:[4,5,3,6],stage:0,progress:0,history:[]},{id:2,name:'신규 고객 서비스',teams:[0,4,3,6],stage:0,progress:0,history:[]}];
- s.events=[{name:'신입 오피스 투어',at:70,status:'예정',kind:'tour'},{name:'함께하는 점심시간',at:420,status:'예정',kind:'lunch'},{name:['출시 발표와 간식 시간','금요일 간식 모임','동료 생일 파티'][(s.day-1)%3],at:850,status:'예정',kind:'party'}];
+ s.events=[{name:'신입 오피스 투어',at:70,status:'예정',kind:'tour',routeVersion:1},{name:'함께하는 점심시간',at:420,status:'예정',kind:'lunch'},{name:['출시 발표와 간식 시간','금요일 간식 모임','동료 생일 파티'][(s.day-1)%3],at:850,status:'예정',kind:'party'}];
 }
 function tickBusiness(s,dt){
  const free=e=>e&&e.visible&&!e.stationary&&!e.assignment&&!e.pendingInterview&&!e.restroom&&!e.path.length&&!['회의 중','회의 대기','회의실로 이동 중','출근 중'].includes(e.state);
@@ -96,7 +96,35 @@ function tickBusiness(s,dt){
  const review=s.interviews.find(m=>m.status==='예정');
  if(review){const reviewer=s.employees.find(e=>e.dept===1&&e.role==='팀원'&&free(e));if(reviewer)reviewer.state=`${review.name} 이력서 검토 중`;}
  for(const p of s.projects){if(p.stage>=p.teams.length)continue;const team=p.teams[p.stage];const workers=s.employees.filter(e=>e.dept===team&&free(e));p.progress=Math.min(100,p.progress+dt*workers.length*0.12);workers.forEach(e=>e.state=`${p.name} · ${DEPTS[team].tasks[e.seat%4]}`);if(p.progress>=100){p.history.push({time:s.time,day:s.day,from:team,to:p.teams[p.stage+1]??null});p.stage++;p.progress=0;log(s,`${p.name} · ${DEPTS[team].name} 작업 완료${p.stage<p.teams.length?' → '+DEPTS[p.teams[p.stage]].name+' 인계':' · 출시 완료'}`);}}
- for(const event of s.events){if(event.status==='예정'&&s.time>=event.at){event.status='진행 중';event.started=s.time;event.members=s.employees.filter(free).slice(0,event.kind==='tour'?2:6).map(e=>e.id);event.members.forEach((id,i)=>{const e=s.employees.find(e=>e.id===id);e.assignment='event';e.state=event.name;route(e,event.kind==='tour'?[15-i,0]:pantrySpotsForFloor(event.kind==='party'?2:0)[i],event.kind==='party'?2:0);});log(s,event.name+' 시작');}if(event.status==='진행 중'&&s.time-event.started>65&&event.members.every(id=>!s.employees.find(e=>e.id===id).path.length)){event.status='완료';event.members.forEach(id=>{const e=s.employees.find(e=>e.id===id);e.assignment=null;e.state='자리로 이동 중';route(e,e.home);});}}
+ for(const event of s.events){
+  if(event.kind==='tour'){tickOfficeTour(s,event,free);continue;}
+  if(event.status==='예정'&&s.time>=event.at){event.status='진행 중';event.started=s.time;event.members=s.employees.filter(free).slice(0,6).map(e=>e.id);event.members.forEach((id,i)=>{const e=s.employees.find(e=>e.id===id);e.assignment='event';e.state=event.name;route(e,pantrySpotsForFloor(event.kind==='party'?2:0)[i],event.kind==='party'?2:0);});log(s,event.name+' 시작');}
+  if(event.status==='진행 중'&&s.time-event.started>65&&event.members.every(id=>!s.employees.find(e=>e.id===id).path.length)){event.status='완료';event.members.forEach(id=>{const e=s.employees.find(e=>e.id===id);e.assignment=null;e.state='자리로 이동 중';route(e,e.home);});}
+ }
+
+}
+function sendTourToStop(s,event){
+ const stop=TOUR_STOPS[event.step];event.currentStop=stop.name;event.totalStops=TOUR_STOPS.length;event.arrivedAt=null;
+ event.members.forEach((id,index)=>{const e=s.employees.find(person=>person.id===id);e.state=`오피스 투어 · ${stop.name} 이동 중`;route(e,[stop.position[0]+index*.6,stop.position[1]],stop.floor);});
+}
+function tickOfficeTour(s,event,free){
+ if(event.status==='예정'&&s.time>=event.at){
+  const guide=s.employees.find(e=>e.dept===1&&e.role==='팀원'&&free(e));
+  const newcomer=s.employees.find(e=>e.role==='팀원'&&e.dept!==1&&free(e));
+  if(!guide||!newcomer){event.waitReason='안내 담당자와 참여 직원의 기존 일정이 끝나면 시작합니다.';return;}
+  event.status='진행 중';event.started=s.time;event.members=[guide.id,newcomer.id];event.guide=guide.id;event.step=0;event.waitReason='';event.routeVersion=1;
+  event.members.forEach(id=>s.employees.find(e=>e.id===id).assignment='event');sendTourToStop(s,event);log(s,`${guide.name} 안내로 1층부터 3층까지 오피스 투어를 시작합니다.`);
+ }
+ if(event.status!=='진행 중')return;
+ const stop=TOUR_STOPS[event.step],members=event.members.map(id=>s.employees.find(e=>e.id===id));
+ if(!stop)return;
+ if(members.every(e=>e&&!e.path.length&&e.floor===stop.floor)){
+  if(event.arrivedAt==null){event.arrivedAt=s.time;members.forEach(e=>e.state=`오피스 투어 · ${stop.name} 둘러보는 중`);log(s,`오피스 투어 · ${stop.name}에 도착했습니다.`);}
+  if(s.time-event.arrivedAt>=8){event.step++;
+   if(event.step<TOUR_STOPS.length)sendTourToStop(s,event);
+   else{event.status='완료';event.ended=s.time;event.currentStop='1~3층 전체 투어 완료';members.forEach(e=>{e.assignment=null;e.state='자리로 이동 중';route(e,e.home,e.homeFloor);});log(s,'1층·2층·3층 오피스 투어를 마치고 각자 자리로 복귀합니다.');}
+  }
+ }
 }
 function tickRestrooms(s){
  for(const e of s.employees){
@@ -179,6 +207,12 @@ export function loadSimulation(storage=globalThis.localStorage){
     data.interviews.forEach(m=>{if(['방문객 도착','안내 중','면접 준비'].includes(m.status)){m.status='방문객 도착';m.escort=null;m.members=[];const v=(data.visitors||[]).find(person=>person.id===m.visitor);if(v){v.visible=true;v.floor=0;v.pos=[...LOBBY.waiting];v.path=[];v.state='안내 데스크 대기';}}else if(m.status==='면접 중'){(m.members||[]).forEach(id=>{const e=data.employees.find(person=>person.id===id);if(e){e.assignment=m.id;e.path=[];e.state='면접 중';e.floor=0;e.pos=[...ROOM_SEATS[0][m.members.indexOf(id)]];}});}});
   }
   if(data.mode==='working'&&ceo?.visible&&!ceo.assignment&&!ceo.pendingInterview&&!ceo.restroom&&!data.schedule.some(m=>['gathering','active'].includes(m.status)&&getMeetingMembers(data,m).some(e=>e.id===ceo.id))){ceo.visiting=null;ceo.state='대표실로 복귀 중';route(ceo,CEO_HOME,2);}
+  for(const event of data.events||[]){
+   if(event.kind==='tour'&&event.routeVersion!==1){
+    if(event.status==='진행 중')for(const id of event.members||[]){const e=data.employees.find(person=>person.id===id);if(e?.assignment==='event'){e.assignment=null;e.state='자리로 이동 중';route(e,e.home,e.homeFloor);}}
+    event.status='예정';event.routeVersion=1;event.members=[];event.step=0;event.currentStop=null;event.arrivedAt=null;
+   }
+  }
   return {...data,workflowVersion:4,logs:(data.logs||[]).filter(entry=>!/[?�]/.test(entry.message)),visitors:data.visitors||[],random:Math.random,followId:null,buildingOverview:false};
  }catch{return null;}
 }

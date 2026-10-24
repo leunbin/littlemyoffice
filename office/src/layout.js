@@ -2,6 +2,14 @@ export const TEAM_CENTERS = [-12, -6, 0, 6, 12];
 export const ROOMS = [{x:-12,name:'회의실 A'},{x:-4,name:'회의실 B'},{x:4,name:'대표실'},{x:12,name:'탕비실'}];
 export const ENTRY = [18,0];
 export const LOBBY = {floor:0,dividerX:9.6,reception:[13,-4.4],staff:[13,-5.55],waiting:[13,-2.7],door:[9.6,0],elevator:[15.8,-1.4]};
+export const TOUR_STOPS=[
+  {floor:0,name:'1층 로비·안내 데스크',position:[12.1,-2.4]},
+  {floor:0,name:'1층 영업·인사 업무 공간',position:[2,.7]},
+  {floor:1,name:'2층 개발·기획·디자인 공간',position:[0,.7]},
+  {floor:1,name:'2층 협업 라운지',position:[12.1,-3.3]},
+  {floor:2,name:'3층 대표실',position:[5,5.2]},
+  {floor:2,name:'3층 정원',position:[12.1,-2.6]},
+];
 export const RESTROOMS=[{name:'남자 화장실',sign:'MEN',x:-15.6,z:-6,color:'#95aabb'},{name:'여자 화장실',sign:'WOMEN',x:-15.6,z:-10.2,color:'#be9bad'}];
 export const TEAM_SEATS = [
   {offset:[-0.85,-8.1],facing:0},{offset:[0.85,-8.1],facing:0},
