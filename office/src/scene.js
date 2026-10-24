@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {remodelOffice} from './interiors.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {DEPTS,DEPT_FLOORS,FLOOR_NAMES} from './simulation.js';
-import {TEAM_CENTERS,TEAM_SEATS,ROOM_SEATS,ROOMS,LOBBY,RESTROOMS} from './layout.js';
+import {TEAM_CENTERS,TEAM_SEATS,ROOM_SEATS,ROOMS,LOBBY,RESTROOMS,ENTRY} from './layout.js';
 
 export function createOffice(canvas,sim,onSelect){
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
@@ -41,7 +41,7 @@ export function createOffice(canvas,sim,onSelect){
   });
   label('LITTLE OFFICE  /  EVERYDAY, TOGETHER',0,0.35,1.1,'#b0909e',0.7);label('출입구 →',16.3,0.5,-0.6,'#b38599',0.46);
   const glass=new THREE.MeshPhysicalMaterial({color:'#e7d5e1',transparent:true,opacity:0.17,roughness:0.12,metalness:0.05,depthWrite:false,side:THREE.DoubleSide});
-  const doors=[];const lobbyDoors=[];const floorLabels=[];
+  const doors=[];const lobbyDoors=[];const entranceDoors=[];const floorLabels=[];
   function glassWall(x,z,width,depth){const isSide=depth>width;box(x,1.45,z,width,2.9,depth,glass).castShadow=false;box(x,0.12,z,isSide?0.12:width,0.15,isSide?depth:0.12,'#a28d9e');box(x,2.92,z,isSide?0.1:width,0.09,isSide?depth:0.1,'#a28d9e');if(isSide){[-1,1].forEach(s=>box(x,1.45,z+s*depth/2,0.09,2.9,0.09,'#ae98a7'));}else{[-1,1].forEach(s=>box(x+s*width/2,1.45,z,0.09,2.9,0.09,'#ae98a7'));}}
   function roomShell(r,index){const x=r.x;box(x,0.12,7.4,7.6,0.1,7.8,index===3?'#ead8cf':'#e6dbe3');box(x,0.18,7.4,7.3,0.03,7.5,index===3?'#f1e5dd':'#f1e8ed');glassWall(x-3.8,7.4,0.055,7.8);glassWall(x+3.8,7.4,0.055,7.8);glassWall(x,11.3,7.6,0.055);
     glassWall(x-0.95,3.5,5.7,0.055);glassWall(x+3.55,3.5,0.5,0.055);
@@ -71,16 +71,22 @@ export function createOffice(canvas,sim,onSelect){
   pantryObjects.forEach(o=>scene.remove(o));
   for(let floor=0;floor<3;floor++){const objects=pantryObjects.map(o=>{const copy=o.clone(true);if(floor===0)copy.position.x-=8;scene.add(copy);return copy;});departmentObjects.push({floor,objects});}
 
-  const elevator=new THREE.Group();elevator.position.set(17.2,0,-1.4);elevator.rotation.y=-Math.PI/2;scene.add(elevator);
+  const elevator=new THREE.Group();elevator.position.set(LOBBY.elevatorWall[0],0,LOBBY.elevatorWall[1]);elevator.rotation.y=-Math.PI/2;scene.add(elevator);
   box(0,1.4,0,2.6,2.8,.2,'#68766f',elevator);
   [-1,1].forEach(side=>box(side*.46,1.35,.15,.89,2.5,.1,'#c6cfca',elevator));
   box(0,1.35,.21,.025,2.5,.025,'#89958e',elevator);
   box(0,2.95,.05,.8,.24,.15,'#485951',elevator);
-  label('ELEVATOR',17.2,3.35,-1.4,'#63796b',.38);
+  label('ELEVATOR',LOBBY.elevatorWall[0],3.35,LOBBY.elevatorWall[1],'#63796b',.38);
   [-7,0,7].forEach(x=>{box(x,0.65,-12.3,2,1.1,0.1,'#d6b5c5');label('IDEAS · CREATE',x,1.7,-12.2,'#876a83',0.32);});
   [1,2].forEach(i=>plant(-17,5+i*2,0.8));
   for(let floor=0;floor<3;floor++){const before=new Set(scene.children);
     if(floor===0){
+      // Transparent automatic street entrance, aligned with the arrival and departure route.
+      const entryLeaf=new THREE.Group();entryLeaf.position.set(ENTRY[0],0,ENTRY[1]);scene.add(entryLeaf);
+      box(0,1.42,0,.075,2.84,1.9,glass,entryLeaf);[-.95,.95].forEach(dz=>box(0,1.42,dz,.09,2.84,.05,'#7e9488',entryLeaf));
+      box(-.08,1.3,.6,.055,.55,.05,'#627f6b',entryLeaf);entranceDoors.push({group:entryLeaf,open:0});
+      [-1.08,1.08].forEach(dz=>box(ENTRY[0],1.5,ENTRY[1]+dz,.14,3,.12,'#7e9488'));box(ENTRY[0],3,ENTRY[1],.16,.14,2.3,'#7e9488');
+      label('MAIN ENTRANCE',17.2,3.3,ENTRY[1],'#647f6a',.34);
       // The lobby continues into the former pantry, separated from the staff pantry.
       box(13.1,0.11,8,9.4,0.12,10,'#dfd1c6');
       for(let x=8.8;x<18;x+=1.2)box(x,0.178,8,0.018,0.01,10,'#c9b9ae');
@@ -163,6 +169,17 @@ export function createOffice(canvas,sim,onSelect){
     departmentObjects.push({floor,objects:scene.children.filter(o=>!before.has(o))});
   }
   remodelOffice({scene,box,sphere,label,plant,departmentObjects,employees:sim.employees});
+  const eventProps=[];
+  {
+    const before=new Set(scene.children);
+    const cake=new THREE.Group();scene.add(cake);
+    box(4,.55,7,1.3,.1,.7,'#b79b7e',cake);box(4,.3,7,.12,.5,.12,'#617566',cake);
+    box(4,.7,7,.6,.2,.45,'#e5cbbb',cake);box(4,.82,7,.62,.06,.47,'#faf0db',cake);
+    [-.15,0,.15].forEach(dx=>{box(4+dx,.94,7,.035,.18,.035,'#b49da8',cake);sphere(4+dx,1.05,7,.03,'#e8bd6c',cake);});
+    eventProps.push({object:cake,kind:'party'});
+    const launch=label('PRODUCT LAUNCH',4,2.6,10.5,'#e0e9db',.5);eventProps.push({object:launch,kind:'launch'});
+    departmentObjects.push({floor:1,objects:scene.children.filter(o=>!before.has(o))});
+  }
   // Common shell and furniture are shared by each floor in the exploded building view.
   const floorSpecific=new Set([...departmentObjects.flatMap(d=>d.objects),...floorLabels.map(d=>d.sprite)]);
   const sharedObjects=scene.children.filter(o=>!o.isLight&&!floorSpecific.has(o));
@@ -179,6 +196,7 @@ export function createOffice(canvas,sim,onSelect){
     box(0,0.88,0,0.48,0.61,0.32,a.top,body);
     // Collars, jacket lapels and individual accessories.
     box(0,1.11,0.17,0.2,0.15,0.035,'#f9efeb',body);
+    if(e.suited){box(0,.96,.18,.24,.4,.035,'#f1f2ec',body);[-1,1].forEach(side=>{const lapel=box(side*.12,1,.205,.11,.3,.035,a.top,body);lapel.rotation.z=side*.3;});box(.46,.58,.02,.2,.34,.42,'#4c4541',body);}
     if(e.role!=='팀원'){box(0,0.94,0.19,0.06,0.28,0.035,'#775773',body);box(-0.18,1.02,0.18,0.07,0.07,0.03,'#d8b985',body);}
     else if(a.accessory===0){box(0,0.99,0.19,0.04,0.31,0.03,'#dac2d3',body);box(0,0.79,0.19,0.14,0.16,0.025,'#faf0f4',body);}
     else if(a.accessory===2){box(0,1.13,0,0.52,0.12,0.4,'#e9d2c7',body);}
@@ -209,7 +227,7 @@ export function createOffice(canvas,sim,onSelect){
   const observer=new ResizeObserver(resize);observer.observe(canvas.parentElement);resize();
   return {render(time){
     for(const e of sim.visitors)if(!avatars.some(a=>a.employee===e))avatars.push(makeAvatar(e));
-    for(let i=avatars.length-1;i>=0;i--)if(avatars[i].employee.role==='지원자'&&!sim.visitors.includes(avatars[i].employee)){const removed=avatars.splice(i,1)[0];scene.remove(removed.group);removed.group.traverse(o=>{o.geometry?.dispose();if(o.material?.map){o.material.map.dispose();o.material.dispose();}});}
+    for(let i=avatars.length-1;i>=0;i--)if(!sim.employees.includes(avatars[i].employee)&&!sim.visitors.includes(avatars[i].employee)){const removed=avatars.splice(i,1)[0];scene.remove(removed.group);removed.group.traverse(o=>{o.geometry?.dispose();if(o.material?.map){o.material.map.dispose();o.material.dispose();}});}
     const overview=!!sim.buildingOverview;
     if(overview!==overviewWasActive){overviewWasActive=overview;if(overview)sim.followId=null;controls.maxDistance=overview?130:85;controls.target.set(0,overview?11:0,0);camera.position.set(...(overview?[48,52,65]:initial));}
     overviewTitles.forEach(sprite=>sprite.visible=overview);overviewFloors.forEach(group=>group.visible=overview);sharedObjects.forEach(o=>o.visible=!overview);
@@ -217,16 +235,19 @@ export function createOffice(canvas,sim,onSelect){
     if(followed){sim.activeFloor=followed.floor;const target=new THREE.Vector3(followed.pos[0],0,followed.pos[1]);if(tracked!==followed.id){tracked=followed.id;previousTarget.copy(controls.target);camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).normalize().multiplyScalar(30)));}const next=previousTarget.clone().lerp(target,0.08);camera.position.add(next.clone().sub(controls.target));controls.target.copy(next);previousTarget.copy(next);}else{sim.followId=null;tracked=null;}
     const evening=Math.min(1,time/1100);sun.color.setRGB(1,0.96-evening*0.22,0.92-evening*0.3);sun.intensity=2.2-evening*.65;floorLabels.forEach(d=>{d.sprite.visible=overview||d.floor===sim.activeFloor;d.sprite.position.y=d.sprite.userData.floorBaseY+(overview?d.floor*11:0);});
     departmentObjects.forEach(d=>d.objects.forEach(o=>{o.visible=overview||d.floor===sim.activeFloor;o.position.y=o.userData.floorBaseY+(overview?d.floor*11:0);}));
+    eventProps.forEach(prop=>prop.object.visible=(overview||sim.activeFloor===1)&&sim.events.some(event=>event.kind===prop.kind&&event.venue==='project'&&['이동 중','진행 중'].includes(event.status)));
+    entranceDoors.forEach(d=>{const nearby=[...sim.employees,...sim.visitors].some(e=>e.visible&&e.floor===0&&Math.hypot(e.pos[0]-ENTRY[0],e.pos[1]-ENTRY[1])<2.4);d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,.15);d.group.position.z=ENTRY[1]-d.open*1.9;});
     lobbyDoors.forEach(d=>{const nearby=[...sim.employees,...sim.visitors].some(e=>e.visible&&e.floor===0&&Math.hypot(e.pos[0]-LOBBY.door[0],e.pos[1]-LOBBY.door[1])<2);d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,0.15);d.group.position.z=LOBBY.door[1]-d.open*2.4;});
     doors.forEach(d=>{const nearby=[...sim.employees,...sim.visitors].some(e=>e.visible&&e.floor===(d.floor??sim.activeFloor)&&Math.abs(e.pos[0]-d.x)<1.6&&Math.abs(e.pos[1]-3.5)<2.1);d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,0.15);d.group.position.x=d.x+d.open*1.4;});
-    avatars.forEach((a,i)=>{const e=a.employee,moving=e.path.length>0;const home=Math.hypot(e.pos[0]-e.home[0],e.pos[1]-e.home[1])<0.1;const seated=!moving&&(home||['회의 중','회의 대기','면접 중'].includes(e.state));
+    avatars.forEach((a,i)=>{const e=a.employee,moving=e.path.length>0;const home=Math.hypot(e.pos[0]-e.home[0],e.pos[1]-e.home[1])<0.1;const seated=!moving&&(home||['회의 중','회의 대기','면접 중','외부 미팅 중','외부 미팅 대기','라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state));
       a.group.visible=e.visible&&e.restroom?.phase!=='using'&&(overview||e.floor===sim.activeFloor);if(!a.group.visible)return;a.group.position.set(e.pos[0],(overview?e.floor*11:0)+(moving?Math.sin(time*10+i)*0.035:0),e.pos[1]);a.bubble.sprite.visible=!overview;
       if(moving){const p=e.path[0];a.body.rotation.y=Math.atan2(p[0]-e.pos[0],p[1]-e.pos[1]);}
       else if(home)a.body.rotation.y=e.facing;
       else if(e.state==='회의 참관 중')a.body.rotation.y=0;
+      else if(['라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state))a.body.rotation.y=Math.PI;
       else if(e.state==='손 씻는 중')a.body.rotation.y=Math.PI;
       else if(e.state==='커피 마시는 중')a.body.rotation.y=e.pos[1]<7?0:Math.PI;
-      else if(['회의 중','회의 대기','면접 중'].includes(e.state)){const cx=ROOMS.find(r=>Math.abs(r.x-e.pos[0])<3.8)?.x??0;const seat=e.meetingSeat??e.seat;a.body.rotation.y=seat===5?0:seat===4?Math.PI:(e.pos[0]<cx?Math.PI/2:-Math.PI/2);}
+      else if(['회의 중','회의 대기','면접 중','외부 미팅 중','외부 미팅 대기','라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state)){const cx=ROOMS.find(r=>Math.abs(r.x-e.pos[0])<3.8)?.x??0;const seat=e.meetingSeat??e.seat;a.body.rotation.y=seat===5?0:seat===4?Math.PI:(e.pos[0]<cx?Math.PI/2:-Math.PI/2);}
       a.body.position.y=seated?-0.12:0;a.legs.forEach((l,j)=>{l.rotation.x=seated?-1.35:moving?Math.sin(time*10+j*Math.PI)*0.5:0;});a.arms.forEach((arm,j)=>{arm.rotation.x=moving?Math.sin(time*10+j*Math.PI+Math.PI)*0.4:e.state==='손 씻는 중'?-0.9+Math.sin(time*6+j)*0.1:seated?-0.65+Math.sin(time*5+j)*0.06:Math.sin(time*1.7+i)*0.04;});a.bubble.update();
     });controls.update();renderer.render(scene,camera);
   },reset(){sim.followId=null;camera.position.set(...(sim.buildingOverview?[48,52,65]:initial));controls.target.set(0,sim.buildingOverview?11:0,0);},dispose(){observer.disconnect();canvas.removeEventListener('mousedown',preventMiddleScroll);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);controls.dispose();const allMaterials=new Set();scene.traverse(o=>{o.geometry?.dispose();if(o.material)allMaterials.add(o.material);});allMaterials.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();}};

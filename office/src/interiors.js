@@ -88,8 +88,6 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
       label('우리의 작은 회사',13,2.95,-11.85,'#536660',.63);
       label('WELCOME  /  INFORMATION',13,2.45,-11.8,'#8d9788',.33);
       box(15.5,.23,7.8,4.2,.045,6.1,'#c4bba9');
-      box(15.8,1.25,4.8,3.1,2.4,.16,'#d7d9cb');box(15.8,.12,4.8,3.3,.15,.6,'#6c7a70');label('층별 안내',15.8,2.65,4.6,'#63776c',.35);
-      for(let i=0;i<3;i++)label(`${i+1}F  ${['로비 · 인사 · 영업','개발 · 기획 · 디자인','대표실 · 회계 · 마케팅'][i]}`,15.8,1.9-i*.4,4.65,'#67756a',.25);
       printer(6,-10.6);cabinet(5.5,-12,3.4);board(5.4,-8.8,'PEOPLE & OPERATIONS',theme.accent);
       strip(13,-7,4.2);strip(13,7,4.2);
     }
@@ -100,7 +98,7 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
       for(let x=10.6;x<16.3;x+=.38)box(x,1.45,-11.17,.075,2.7,.06,'#b9c6b6');
       sofa(13.3,-9.8,3.5,'#718a84');sofa(16,-7,2.2,'#9ca78e',-Math.PI/2);
       lowTable(13.3,-7.8,2,1.2);box(13.1,.58,-7.8,.65,.045,.42,'#e3dac6');
-      label('COLLABORATION HUB',13.2,3,-11,'#536e6b',.62);
+      label('COLLABORATION LAB',13.2,3,-11,'#536e6b',.62);
       board(11,-5,'DESIGN REVIEW',theme.accent);printer(10.5,-3);
       shelf(10.8,-12,2.6,'#c5bb9f');strip(13,-7.7,4.5);
       box(4,1.7,10.7,3.8,1.7,.1,'#43565a');label('SPRINT  /  THIS WEEK',4,2,10.55,'#e0e7dc',.45);

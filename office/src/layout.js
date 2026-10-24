@@ -1,7 +1,12 @@
 export const TEAM_CENTERS = [-12, -6, 0, 6, 12];
 export const ROOMS = [{x:-12,name:'회의실 A'},{x:-4,name:'회의실 B'},{x:4,name:'대표실'},{x:12,name:'탕비실'}];
-export const ENTRY = [18,0];
-export const LOBBY = {floor:0,dividerX:9.6,reception:[13,-4.4],staff:[13,-5.55],waiting:[13,-2.7],door:[9.6,0],elevator:[15.8,-1.4]};
+export const ENTRY = [18,.2];
+export const LOBBY = {floor:0,dividerX:9.6,reception:[13,-4.4],staff:[13,-5.55],waiting:[13,-2.7],door:[9.6,0],elevator:[16.6,3.1],elevatorWall:[18,3.1],loungeSpots:[[12.1,9],[13.2,9],[14.3,9]],welcome:[11.8,7.8]};
+export const ACTIVITY_VENUES={
+ project:{name:'프로젝트룸',floor:1,spots:[[2,6],[3.3,6],[4.7,6],[6,6],[2.3,9.3],[5.7,9.3]]},
+ collaboration:{name:'COLLABORATION LAB',floor:1,spots:[[11.2,-7.2],[12,-6],[14.1,-6],[14.4,-5.8]]},
+ strategy:{name:'STRATEGY LOUNGE',floor:2,spots:[[4.4,-7],[4.5,-6],[7.5,-6],[7.8,-8]]},
+};
 export const TOUR_STOPS=[
   {floor:0,name:'1층 로비·안내 데스크',position:[12.1,-2.4]},
   {floor:0,name:'1층 영업·인사 업무 공간',position:[2,.7]},
@@ -22,6 +27,8 @@ export const PANTRY_SPOTS = [[10.5,6.1],[12,6.1],[13.5,6.1],[10.5,8.8],[12,8.8],
 export function pantrySpotsForFloor(floor){return PANTRY_SPOTS.map(([x,z])=>[x-(floor===0?8:0),z]);}
 function restroomAt([x,z]){return RESTROOMS.find(room=>x>=room.x-1.8&&x<=room.x+1.85&&Math.abs(z-room.z)<1.94);}
 function accessPath([x,z],floor) {
+  if(floor===0&&Math.hypot(x-ENTRY[0],z-ENTRY[1])<.5)return [[16.6,ENTRY[1]],[16.6,0]];
+  if(Math.hypot(x-LOBBY.elevator[0],z-LOBBY.elevator[1])<.4)return [[LOBBY.elevator[0],0]];
   const restroom=restroomAt([x,z]);
   if(restroom)return [[restroom.x+.25,z],[restroom.x+.25,restroom.z],[restroom.x+1.75,restroom.z],[-13.1,restroom.z],[-13.1,-2.4],[-11.8,-2.4],[-11.8,0]];
   if(floor===LOBBY.floor&&Math.hypot(x-LOBBY.staff[0],z-LOBBY.staff[1])<0.4)return [[10.7,z],[10.7,0]];
