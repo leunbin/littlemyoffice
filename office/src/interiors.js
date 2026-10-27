@@ -61,6 +61,20 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
       });
       strip(cx,-6.6,3.9);
     });
+    const centers=departments.map(dept=>employees.find(e=>e.dept===dept&&e.role==='팀장').home[0]).sort((a,b)=>a-b);
+    for(let i=1;i<centers.length;i++){
+      const x=(centers[i-1]+centers[i])/2,z=-7.2;
+      // Slim drawer partitions keep both desk access lanes and the main corridor open.
+      box(x,.72,z,.65,1.25,3.6,'#d6d8ce');box(x,1.39,z,.73,.09,3.7,'#a58c73');
+      for(const side of [-1,1])for(let col=0;col<3;col++)for(let row=0;row<3;row++){
+        const dz=z-1.2+col*1.2,y=.35+row*.36;
+        box(x+side*.335,y,dz,.025,.32,1.1,'#e5e4db');box(x+side*.36,y+.04,dz,.035,.045,.3,'#7e8b82');
+      }
+      for(const dz of [-1.05,1.05]){
+        box(x,1.59,z+dz,.38,.32,.38,'#d1b39a');
+        sphere(x,1.98,z+dz,.3,'#789375',scene,[.85,1.15,.85]);sphere(x+.12,1.91,z+dz+.08,.19,'#a4b28b');
+      }
+    }
     // Window wall: dark mullions and spandrels replace pastel wall panels.
     box(0,.36,-12.65,35.5,.45,.15,'#a6ada8');
     for(let x=-16.8;x<17.5;x+=2.4){box(x,1.87,-12.61,2.28,2.48,.08,'#bdcdd1');box(x-1.18,1.86,-12.52,.075,2.6,.12,'#5e6e70');box(x,2,-12.5,2.3,.055,.12,'#647475');box(x,.92,-12.5,2.3,.06,.12,'#647475');}
@@ -88,7 +102,6 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
       label('우리의 작은 회사',13,2.95,-11.85,'#536660',.63);
       label('WELCOME  /  INFORMATION',13,2.45,-11.8,'#8d9788',.33);
       box(15.5,.23,7.8,4.2,.045,6.1,'#c4bba9');
-      printer(6,-10.6);cabinet(5.5,-12,3.4);board(5.4,-8.8,'PEOPLE & OPERATIONS',theme.accent);
       strip(13,-7,4.2);strip(13,7,4.2);
     }
     if(floor===1){
