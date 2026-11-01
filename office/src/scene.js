@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {remodelOffice} from './interiors.js';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {DEPTS,DEPT_FLOORS,FLOOR_NAMES} from './simulation.js';
-import {TEAM_CENTERS,TEAM_SEATS,ROOM_SEATS,ROOMS,LOBBY,RESTROOMS,ENTRY} from './layout.js';
+import {CAFE,DIETITIAN_OFFICE,CAFETERIA,CAFETERIA_SEATS,TEAM_CENTERS,TEAM_SEATS,ROOM_SEATS,ROOMS,LOBBY,RESTROOMS,ENTRY} from './layout.js';
 
 export function createOffice(canvas,sim,onSelect){
   const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
@@ -136,8 +136,9 @@ export function createOffice(canvas,sim,onSelect){
   pantryObjects.forEach(o=>scene.remove(o));
   for(let floor=0;floor<3;floor++){const objects=pantryObjects.map(o=>{const copy=o.clone(true);if(floor===0)copy.position.x-=8;scene.add(copy);return copy;});departmentObjects.push({floor,objects});}
 
+  const floorY=floor=>(floor===3?-1:floor)*11;
   const elevatorPortals=[];
-  for(let floor=0;floor<3;floor++){
+  for(let floor=0;floor<4;floor++){
     const before=new Set(scene.children);
     const elevator=new THREE.Group();elevator.position.set(LOBBY.elevatorWall[0],0,LOBBY.elevatorWall[1]);elevator.rotation.y=-Math.PI/2;scene.add(elevator);
     box(0,1.4,0,2.6,2.8,.2,'#344a43',elevator);
@@ -231,6 +232,153 @@ export function createOffice(canvas,sim,onSelect){
     if(floor===1){box(4,0.5,8,3,0.8,1,'#c9b2c5');box(4,0.9,8.5,3,0.6,0.2,'#c9b2c5');}
     departmentObjects.push({floor,objects:scene.children.filter(o=>!before.has(o))});
   }
+  const cafeteriaFood=[],kitchenFlames=[],kitchenOfficeDoors=[];
+  {
+    const before=new Set(scene.children);
+    box(0,-.32,0,36,.64,26,'#b9b7a8');box(0,.13,0,35.8,.1,25.8,'#e8e3d2');
+    box(0,1.5,-12.8,36,3,.16,'#c8d5c5');box(-17.9,1.5,0,.16,3,26,'#c8d5c5');
+    label('사내식당',0,3.4,-11.8,'#547660',.85);
+    
+    
+    const boundary=CAFETERIA.kitchenBoundary;
+    box(0,.22,-13+CAFETERIA.kitchenDepth/2,35.7,.08,CAFETERIA.kitchenDepth,'#c4d3d2');
+    for(let x=-17;x<18;x++)box(x,.266,-13+CAFETERIA.kitchenDepth/2,.015,.006,CAFETERIA.kitchenDepth,'#a8bab8');
+    const counterEnd=DIETITIAN_OFFICE.staffPassage.left;
+    box((-17.5+counterEnd)/2,.5,boundary,counterEnd+17.5,1,.18,'#d3dfdc');
+    box((-17+counterEnd)/2,1.12,boundary,counterEnd+17,.15,1.15,'#9baaa7');
+    // Clear opening between the serving counter and office: no countertop across it.
+    box(DIETITIAN_OFFICE.staffPassage.center,.29,boundary,DIETITIAN_OFFICE.staffPassage.right-counterEnd,.035,3.2,'#d6ddd0');
+    
+    
+    for(const x of [-12,-6,0,6]){
+      box(x,.83,-10.8,3.8,1.6,1.4,'#a6b2b1');box(x,1.68,-10.8,4,.12,1.5,'#dce2df');
+      box(x,3.1,-10.8,4.2,.28,1.8,'#8a9998');box(x,2.1,-6,3.4,.12,1,'#a8b6b3');
+      box(x,1.12,boundary,2.2,.08,.7,'#697e78');
+      box(x,1.2,boundary,2.5,.17,.95,'#c7d1c9');
+      box(x,1.3,boundary,2.22,.04,.74,'#627b70');
+      const dish=new THREE.Group();dish.position.set(x,1.34,boundary);scene.add(dish);
+      const foodColor=['#fff5cf','#cb8a42','#71a34e','#da6747'][[-12,-6,0,6].indexOf(x)];
+      for(let i=0;i<18;i++)sphere(-.88+(i%6)*.35,.06+(i%3)*.035,-.21+Math.floor(i/6)*.21,.16,foodColor,dish,[1.15,.65,.85]);
+      cafeteriaFood.push(dish);
+    }
+    const office=DIETITIAN_OFFICE.bounds;
+    const officeWidth=office.right-office.left,officeDepth=office.front-office.back;
+    box((office.left+office.right)/2,.3,(office.back+office.front)/2,officeWidth,.08,officeDepth,'#d9d1bd');
+    const [connectionX,connectionZ]=DIETITIAN_OFFICE.kitchenDoor;
+    const halfOpening=DIETITIAN_OFFICE.kitchenDoorWidth/2;
+    const doorBack=connectionZ-halfOpening,doorFront=connectionZ+halfOpening;
+    box(office.left,1.55,(office.back+doorBack)/2,.15,3.1,doorBack-office.back,'#c8d5c9');
+    box(office.left,1.55,(doorFront+office.front)/2,.15,3.1,office.front-doorFront,'#c8d5c9');
+    box(connectionX,2.9,connectionZ,.2,.4,DIETITIAN_OFFICE.kitchenDoorWidth,'#91a796');
+    for(const z of [doorBack,doorFront])box(connectionX,1.35,z,.2,2.7,.1,'#91a796');
+    const connectingDoor=new THREE.Group();connectingDoor.position.set(connectionX,0,connectionZ);scene.add(connectingDoor);
+    const panel=new THREE.Group();connectingDoor.add(panel);
+    box(0,1.3,0,.1,2.6,1.85,'#b6cdbd',panel);
+    box(-.065,1.7,0,.025,.85,1.3,'#dce9e1',panel);
+    box(-.1,1.2,.63,.06,.28,.06,'#5e7868',panel);
+    kitchenOfficeDoors.push({panel,open:0});
+    // A low front wall preserves the cutaway view; the central door is walkable.
+    for(const [x,width] of [[12,3],[16.7,2.2]])box(x,.65,office.front,width,1.3,.15,'#c8d5c9');
+    box(14.5,2.9,office.front,1.8,.4,.15,'#c8d5c9');
+    box(17.8,1.55,(office.back+office.front)/2,.12,3.1,officeDepth,'#d6dfd1');
+    box(13,.86,-10.7,3,.14,1.4,'#c6b69a');
+    for(const side of [-1,1])box(13+side*1.3,.44,-10.7,.1,.8,1.15,'#7a8e7f');
+    box(13,1.42,-11.05,1.1,.65,.08,'#415c53');box(13,1.42,-11,.95,.5,.025,'#9fc6b0');
+    box(13,1,-10.3,.75,.04,.25,'#d5ded1');box(13.8,1,-10.3,.3,.04,.4,'#fff7e6');
+    chair(...DIETITIAN_OFFICE.seat,'#9bac96',Math.PI);
+    box(16.5,1.55,-11.9,1.65,3.1,.7,'#b1c0a8');
+    for(const side of [-1,1]){box(16.5+side*.4,1.55,-11.52,.77,2.9,.06,'#dae1cd');box(16.5+side*.12,1.6,-11.46,.04,.42,.05,'#6b8271');}
+    box(16.4,.75,-6,1.5,1.5,.7,'#bdc8b3');box(16.4,1.55,-6,1.6,.08,.8,'#dddfcb');
+    for(const z of CAFETERIA.tableZs)for(const x of CAFETERIA.tableXs){
+      if(x===9&&z!==1)continue;
+      box(x,.86,z,7,.12,1.25,'#e4e6dc');
+      for(const side of [-1,1]){
+        box(x+side*2.7,.43,z,.09,.8,1,'#7d8c8b');
+        for(const dx of [-2.2,0,2.2]){
+          const cx=x+dx,cz=z+side;
+          box(cx,.47,cz,.64,.1,.62,'#94b2bf');box(cx,.82,cz+side*.27,.64,.55,.08,'#94b2bf');
+          for(const leg of [-1,1])box(cx+leg*.23,.23,cz,.05,.44,.48,'#7d8c8b');
+
+        }
+      }
+    }
+    
+
+    for(const x of [-16,-14]){
+      box(x,1.55,-11.5,1.7,3.1,1.4,'#b6c5c4');
+      for(const side of [-1,1]){box(x+side*.4,1.55,-10.76,.77,2.88,.09,'#d8dfdc');box(x+side*.12,1.55,-10.66,.045,.65,.07,'#6c7d78');}
+    }
+    for(const x of [-12,-6,0,6]){
+      box(x,.8,-10.8,3.3,1.5,1.3,'#727f7d');
+      for(const dx of [-.7,.7]){
+        box(x+dx,1.61,-10.8,.9,.06,.9,'#354642');
+        for(let i=0;i<10;i++){
+          const angle=i*Math.PI/5;
+          const flameMaterial=new THREE.MeshBasicMaterial({color:i%2?'#ffad38':'#53bcff',toneMapped:false});
+          const flame=new THREE.Mesh(new THREE.ConeGeometry(.09,.4,7),flameMaterial);
+          flame.position.set(x+dx+Math.cos(angle)*.48,1.85,-10.8+Math.sin(angle)*.48);
+          scene.add(flame);kitchenFlames.push(flame);
+        }
+        sphere(x+dx,2,-10.8,.43,'#afbcba',scene,[1,.6,1]);
+        box(x+dx,.96,-10.08,.14,.14,.06,'#263d36');
+      }
+      box(x,2.75,-11.6,.28,.65,.25,'#8c9a98');
+    }
+    box(8.7,1.1,-11.2,2.4,1.7,1.4,'#a7b9b5');box(8.7,2,-11.2,2.3,.12,1.25,'#e1e8e3');
+    for(const x of [8.1,9.3])sphere(x,2.03,-11.2,.44,'#798f8b',scene,[1,.1,1]);
+    // Stainless preparation stations: sinks, cutting boards, knives and produce.
+    for(const x of [-12,-6,0,6]){
+      box(x,1.02,-6,3.4,1.8,1,'#b8c5c1');
+      box(x-.9,2.12,-6,.95,.04,.75,'#ece4c5');
+      box(x-.8,2.16,-6,.65,.035,.35,'#89a782');
+      for(let i=0;i<3;i++)sphere(x-.98+i*.2,2.23,-6,.11,'#91b575',scene,[1,.8,1]);
+      box(x+.05,2.16,-6,.04,.035,.55,'#5d6d65');box(x+.05,2.19,-6.28,.055,.04,.18,'#cbd5d1');
+      sphere(x+.95,2.13,-6,.37,'#6c8984',scene,[1.2,.12,1]);
+      box(x+.95,2.38,-5.55,.06,.5,.06,'#718b85');box(x+.95,2.62,-5.73,.06,.06,.36,'#718b85');
+      for(const side of [-1,1])box(x+side*1.2,.45,-6,.08,.8,1,'#788e85');
+    }
+    // Wall tiles, extraction ducts, drains and a dishwashing station.
+    for(let x=-17;x<18;x+=1.2)box(x,1.6,-12.69,.018,2.6,.018,'#b3c4bc');
+    for(const y of [.4,1,1.6,2.2,2.8])box(0,y,-12.68,35.6,.018,.018,'#b3c4bc');
+    box(-3,3.55,-11.8,26,.5,.75,'#98aaa3');
+    for(const x of [-12,-6,0,6]){
+      box(x,.29,-8.55,2,.025,.28,'#798e86');
+      for(let i=0;i<9;i++)box(x-.9+i*.22,.31,-8.55,.035,.015,.25,'#455e54');
+      box(x+1.35,2.36,-6,.16,.22,.22,'#ded5bb');
+    }
+    box(-16,1,-6.1,2.2,1.8,1.5,'#b3c5bc');box(-16,1.95,-6.1,2.1,.12,1.4,'#dce5dc');
+    box(-16,2.36,-6.6,1.7,.7,.12,'#92a89e');
+    for(let i=0;i<8;i++)box(-16.6+i*.17,2.5,-6.3,.04,.4,.55,'#e7eee3');
+    const pickup=box(-16,.7,-2.5,2.4,1.2,1.3,'#b4c6bf');
+    for(let i=0;i<12;i++)box(-16,.89+i*.055,-2.5,.9,.035,.6,'#b5c4c1');
+    for(const x of [-15.4,-15.1]){box(x,1.36,-2.5,.2,.22,.3,'#e0e6dc');for(let i=0;i<7;i++)box(x-.07+i*.022,1.58,-2.5,.015,.36,.025,'#7c918a');}
+    // Coffee shop opposite the dietitian's office, with a clear side aisle.
+    const cafeWidth=CAFE.bounds.right-CAFE.bounds.left,cafeLength=CAFE.bounds.back-CAFE.bounds.front;
+    const cafeX=(CAFE.bounds.left+CAFE.bounds.right)/2,cafeZ=(CAFE.bounds.front+CAFE.bounds.back)/2;
+    box(cafeX,.3,cafeZ,cafeWidth,.09,cafeLength,'#bca98d');
+    for(let x=CAFE.bounds.left+.3;x<CAFE.bounds.right;x+=.65)box(x,.35,cafeZ,.015,.008,cafeLength-.1,'#a59176');
+    // Keep the elevator side open and low so the lift remains visible.
+    box(CAFE.bounds.right,.52,cafeZ,.1,.38,cafeLength,'#b6c3ac');
+    box(cafeX,1.5,12.85,cafeWidth,3,.12,'#cbd3bc');
+    label('사내 커피숍',11.5,3.2,12.65,'#446c55',.65);
+    box(13.55,.77,10.8,6.1,1.45,1,'#708774');
+    box(13.55,1.55,10.8,6.2,.12,1.15,'#e3d7be');
+    for(let x=10.65;x<16.6;x+=.3)box(x,.8,10.28,.04,1.3,.025,'#8da18a');
+    box(12,1.85,10.8,.6,.5,.4,'#334e41');box(12,1.85,10.56,.48,.35,.03,'#b5d6b5');
+    box(15,1.9,10.9,1.4,.6,.75,'#526c5c');box(15,2.25,10.9,1.45,.1,.8,'#aebeb0');
+    for(const x of [14.65,15.3]){box(x,1.7,10.53,.07,.26,.18,'#b7c8bb');sphere(x,1.66,10.38,.12,'#fff7e2',scene,[1,.85,1]);}
+    box(13.5,1.85,10.95,.45,.55,.5,'#8a9e89');sphere(13.5,2.3,10.95,.2,'#6a5543',scene,[1,1.3,1]);
+    box(14.2,1.05,12.45,4.4,2.1,.45,'#9cad97');
+    for(const x of [12.5,13.4,14.3,15.2,16.1]){box(x,2.18,12.45,.7,.08,.4,'#dbe1ce');sphere(x,2.37,12.4,.12,'#b7c7a5');}
+    for(let i=0;i<7;i++)box(16,1.65+i*.05,10.65,.2,.045,.2,'#fff7df');
+    for(const [x,z] of CAFE.tables){
+      box(x,.75,z,1.25,.12,1.15,'#dfc7a3');box(x,.39,z,.12,.65,.12,'#5d7760');
+      for(const side of [-1,1])chair(x+side*.85,z,'#819b7e',side<0?Math.PI/2:-Math.PI/2);
+      plant(x,12.2,.3);
+    }
+    box(17.2,.7,8.9,.5,1.3,.5,'#8c9e7e');box(17.2,1.38,8.9,.55,.08,.55,'#c6d0b7');
+    departmentObjects.push({floor:3,objects:scene.children.filter(o=>!before.has(o))});
+  }
   // Restrooms occupy the unused west edge, clear of desks and the main corridor.
   RESTROOMS.forEach(room=>{
     const {x,z,color}=room;
@@ -285,23 +433,38 @@ export function createOffice(canvas,sim,onSelect){
   // Common shell and furniture are shared by each floor in the exploded building view.
   const floorSpecific=new Set([...departmentObjects.flatMap(d=>d.objects),...floorLabels.map(d=>d.sprite)]);
   const sharedObjects=scene.children.filter(o=>!o.isLight&&!floorSpecific.has(o));
-  const overviewFloors=[0,1,2].map(floor=>{const group=new THREE.Group();group.position.y=floor*11;group.visible=false;sharedObjects.forEach(o=>group.add(o.clone(true)));group.traverse(o=>o.userData.overviewFloor=floor);scene.add(group);return group;});
+  const overviewFloors=[0,1,2,3].map(floor=>{const group=new THREE.Group();group.position.y=floorY(floor);group.visible=false;if(floor!==3)sharedObjects.forEach(o=>group.add(o.clone(true)));else box(0,-.4,0,36,.2,26,'#b9b7a8',group);group.traverse(o=>o.userData.overviewFloor=floor);scene.add(group);return group;});
   departmentObjects.forEach(d=>d.objects.forEach(o=>o.userData.floorBaseY=o.position.y));
   floorLabels.forEach(d=>d.sprite.userData.floorBaseY=d.sprite.position.y);
-  const overviewTitles=FLOOR_NAMES.map((name,floor)=>{const sprite=label(name,-12,floor*11+1.2,-14.5,'#805e76',0.9);sprite.visible=false;return sprite;});
+  const overviewTitles=FLOOR_NAMES.map((name,floor)=>{const sprite=label(name,-12,floorY(floor)+1.2,-14.5,'#805e76',0.9);sprite.visible=false;return sprite;});
   let overviewWasActive=false;
   function speech(e){const c=document.createElement('canvas');c.width=512;c.height=176;const ctx=c.getContext('2d');const tex=new THREE.CanvasTexture(c);tex.colorSpace=THREE.SRGBColorSpace;tex.minFilter=THREE.LinearFilter;const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,depthTest:true,depthWrite:false}));sprite.scale.set(2.65,0.91,1);sprite.position.y=2.05+(e.seat%2)*0.28;sprite.renderOrder=10;
     let previous='';return {sprite,update(){const key=e.state+'-'+e.meetingKind+'-'+(e.elevatorRide?'riding':e.path[0]?.length===3?'waiting':'');if(key===previous)return;previous=key;ctx.clearRect(0,0,512,176);ctx.fillStyle='#fff9fc';ctx.strokeStyle=e.role==='팀장'?'#be8aab':'#dfc8d6';ctx.lineWidth=3;ctx.beginPath();ctx.roundRect(5,4,502,145,25);ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(239,148);ctx.lineTo(256,171);ctx.lineTo(273,148);ctx.fill();ctx.fillStyle=DEPTS[e.dept]?.color||'#88667f';ctx.font='600 29px "Malgun Gothic",sans-serif';ctx.textAlign='center';ctx.fillText(`${e.name}${e.role==='팀원'?'':` · ${e.role}`}`,256,54);ctx.fillStyle='#685362';ctx.font='800 31px "Malgun Gothic",sans-serif';ctx.fillText(e.elevatorRide?'\uC5D8\uB9AC\uBCA0\uC774\uD130 \uD0D1\uC2B9 \uC911':e.path[0]?.length===3?'\uC5D8\uB9AC\uBCA0\uC774\uD130 \uB300\uAE30 \uC911':e.meetingKind==='leadership'&&e.state==='회의 중'?'대표·팀장 회의 중':e.state,256,108,465);tex.needsUpdate=true;}};
   }
   function makeAvatar(e){
     const group=new THREE.Group(),body=new THREE.Group(),a=e.appearance;group.add(body);body.scale.set(a.build,a.height,1);
-    box(0,0.88,0,0.48,0.61,0.32,a.top,body);
+    const torso=box(0,0.88,0,0.48,0.61,0.32,a.top,body);
     // Collars, jacket lapels and individual accessories.
     box(0,1.11,0.17,0.2,0.15,0.035,'#f9efeb',body);
     if(e.suited){box(0,.96,.18,.24,.4,.035,'#f1f2ec',body);[-1,1].forEach(side=>{const lapel=box(side*.12,1,.205,.11,.3,.035,a.top,body);lapel.rotation.z=side*.3;});box(.46,.58,.02,.2,.34,.42,'#4c4541',body);}
-    if(e.role!=='팀원'){box(0,0.94,0.19,0.06,0.28,0.035,'#775773',body);box(-0.18,1.02,0.18,0.07,0.07,0.03,'#d8b985',body);}
+    const uniformStart=body.children.length;
+    if(e.cafeteria){
+      const dietitian=e.role==='영양사';
+      box(0,.72,.02,.55,.94,.39,'#fafbf5',body);
+      if(dietitian){
+        box(0,.84,.224,.025,.67,.02,'#b7c9c5',body);
+        for(const side of [-1,1]){const lapel=box(side*.1,1.07,.23,.13,.25,.03,'#dce8e3',body);lapel.rotation.z=side*.3;box(side*.17,.66,.23,.15,.14,.025,'#e1e9e4',body);}
+        box(-.16,1,.25,.14,.09,.025,'#79a891',body);
+      }else{
+        box(0,.7,.245,.43,.67,.04,'#b7cec1',body);box(0,.94,.27,.38,.035,.02,'#8ba99b',body);
+        for(let i=0;i<4;i++)sphere(.12,1.08-i*.1,.232,.018,'#7d9088',body);
+      }
+    }
+    else if(e.cafe){box(0,.72,.205,.45,.78,.05,'#567e62',body);box(0,.9,.24,.35,.035,.025,'#c8d3b7',body);box(-.13,1.03,.25,.14,.08,.02,'#ede6c6',body);}
+    else if(e.role!=='팀원'){box(0,0.94,0.19,0.06,0.28,0.035,'#775773',body);box(-0.18,1.02,0.18,0.07,0.07,0.03,'#d8b985',body);}
     else if(a.accessory===0){box(0,0.99,0.19,0.04,0.31,0.03,'#dac2d3',body);box(0,0.79,0.19,0.14,0.16,0.025,'#faf0f4',body);}
     else if(a.accessory===2){box(0,1.13,0,0.52,0.12,0.4,'#e9d2c7',body);}
+    const uniformParts=e.role==='영양사'?body.children.slice(uniformStart):[];
     sphere(0,1.42,0,0.25,a.skin,body,[1,1.08,0.95]);
     [-1,1].forEach(s=>{sphere(s*0.25,1.42,0,0.06,a.skin,body);sphere(s*0.085,1.43,0.222,0.021,'#44313e',body);});sphere(0,1.36,0.245,0.035,a.skin,body,[1,1,0.8]);
     const hair=new THREE.Mesh(new THREE.SphereGeometry(0.263,14,10,0,Math.PI*2,0,Math.PI*0.5),mat(a.hair));hair.position.y=1.47;body.add(hair);
@@ -311,11 +474,31 @@ export function createOffice(canvas,sim,onSelect){
     if(a.style===3){for(let i=0;i<7;i++)sphere(Math.cos(i)*0.18,1.63+Math.sin(i*2)*0.04,Math.sin(i)*0.15,0.11,a.hair,body);}
     if(a.style===4){box(0.12,1.63,0.08,0.24,0.2,0.23,a.hair,body);sphere(0,1.32,-0.28,0.14,a.hair,body,[0.8,1.8,1]);}
     if(a.style===5){box(0,1.69,0,0.52,0.12,0.4,a.top,body);box(0,1.63,0.22,0.52,0.05,0.24,a.top,body);}
+    if(e.cafeteria&&e.role!=='영양사'){
+      sphere(0,1.73,0,.3,'#fffef6',body,[1.05,.65,1]);box(0,1.64,.1,.58,.1,.4,'#e6ede7',body);
+      box(0,1.34,.25,.32,.14,.035,'#e4f0eb',body);
+    }
     if(a.glasses){[-0.1,0.1].forEach(x=>{const rim=new THREE.Mesh(new THREE.TorusGeometry(0.075,0.013,5,14),mat('#654d63'));rim.position.set(x,1.44,0.24);body.add(rim);});box(0,1.44,0.245,0.05,0.015,0.02,'#654d63',body);}
     if(a.accessory===3){sphere(-0.29,1.42,0,0.07,'#8e7699',body);sphere(0.29,1.42,0,0.07,'#8e7699',body);}
     const legs=[],arms=[];
     [-1,1].forEach(s=>{const leg=new THREE.Group();leg.position.set(s*0.13,0.57,0);body.add(leg);box(0,-0.26,0,0.18,0.5,0.22,a.trousers,leg);box(0,-0.49,0.055,0.2,0.1,0.32,e.id%2?'#f7edee':'#61535f',leg);legs.push(leg);
       const arm=new THREE.Group();arm.position.set(s*0.31,1.1,0);body.add(arm);box(0,-0.18,0,0.14,0.35,0.19,a.top,arm);sphere(0,-0.4,0,0.083,a.skin,arm);arms.push(arm);});
+    const mealTray=new THREE.Group();body.add(mealTray);mealTray.visible=false;
+    const coffeeCup=new THREE.Group();body.add(coffeeCup);coffeeCup.visible=false;
+    sphere(.3,.83,.39,.12,'#faf3df',coffeeCup,[.85,1.6,.85]);box(.3,.9,.39,.22,.1,.22,'#769776',coffeeCup);box(.3,1.02,.39,.23,.035,.23,'#4d6d55',coffeeCup);
+    box(0,.86,.52,.86,.045,.55,'#aebfba',mealTray);
+    box(.29,.9,.55,.025,.025,.4,'#677f77',mealTray);box(.35,.9,.55,.025,.025,.4,'#677f77',mealTray);
+    const mealFoods=[];
+    for(let i=0;i<4;i++)mealFoods.push(sphere(-.27+i*.17,.94,.52,.09,['#fff7df','#d4a269','#84a26b','#d98765'][i],mealTray,[1,.4,1]));
+    const kitchenTools={};
+    for(const kind of ['ingredients','knife','ladle','food','wash','clipboard','mop']){
+      const tool=new THREE.Group();tool.visible=false;body.add(tool);kitchenTools[kind]=tool;
+      if(kind==='mop'){box(.35,.65,.5,.045,1.15,.045,'#91a9a0',tool);box(.35,.1,.5,.65,.12,.25,'#c3d4c6',tool);}
+      else if(kind==='ladle'){box(.36,.83,.47,.04,.6,.04,'#8b9f95',tool);sphere(.36,.54,.47,.12,'#a8b8ad',tool,[1,.4,1]);}
+      else if(kind==='knife'){box(.35,.82,.45,.05,.16,.07,'#5e7568',tool);box(.35,.66,.45,.025,.23,.15,'#dce5dd',tool);}
+      else if(kind==='clipboard'){box(.2,.91,.43,.37,.5,.04,'#809c8a',tool);box(.2,.91,.46,.3,.4,.015,'#fffbed',tool);}
+      else {box(0,.79,.48,.62,.16,.43,kind==='wash'?'#c1d0c4':'#c8d9bc',tool);sphere(0,.9,.48,.17,kind==='food'?'#d9b06d':'#87ac72',tool,[1.6,.45,1]);}
+    }
     const cargo=new THREE.Group();body.add(cargo);
     for(let i=0;i<5;i++){const parcel=box((i%2)*.32-.16,.62+Math.floor(i/2)*.22,.43,.35,.21,.3,'#c59c70',cargo);box(parcel.position.x,parcel.position.y+.11,.43,.08,.015,.3,'#e7d2ad',cargo);}
     const receipt=box(0,.85,.42,.36,.48,.025,'#fff8e9',body);
@@ -326,7 +509,7 @@ export function createOffice(canvas,sim,onSelect){
       for(const z of [1.05,2.05])sphere(side*.56,.13,z,.13,'#3d454b',cart,[1,1,.65]);
     }
     box(0,1.27,.92,1.25,.07,.07,'#596975',cart);
-    const bubble=speech(e);group.add(bubble.sprite);group.traverse(o=>o.userData.employee=e);scene.add(group);return {group,body,legs,arms,bubble,cargo,receipt,cart,employee:e};
+    const bubble=speech(e);group.add(bubble.sprite);group.traverse(o=>o.userData.employee=e);scene.add(group);return {group,body,legs,arms,bubble,cargo,receipt,cart,mealTray,mealFoods,kitchenTools,uniformParts,torso,coffeeCup,employee:e};
   }
   const avatars=sim.employees.map(makeAvatar);
   const receivedParcels=new THREE.Group();scene.add(receivedParcels);
@@ -361,11 +544,13 @@ export function createOffice(canvas,sim,onSelect){
     const receivedCount=(sim.deliveries||[]).reduce((sum,d)=>sum+(d.receivedCount||0),0);
     receivedParcels.visible=receivedCount>0&&(overview||sim.activeFloor===0);receivedParcels.children.forEach((o,index)=>o.visible=Math.floor(index/2)<receivedCount);
     if(overview!==overviewWasActive){overviewWasActive=overview;if(overview)sim.followId=null;controls.maxDistance=overview?130:85;controls.target.set(0,overview?11:0,0);camera.position.set(...(overview?[48,52,65]:initial));}
-    overviewTitles.forEach(sprite=>sprite.visible=overview);overviewFloors.forEach(group=>group.visible=overview);sharedObjects.forEach(o=>o.visible=!overview);
+    overviewTitles.forEach(sprite=>sprite.visible=overview);overviewFloors.forEach(group=>group.visible=overview);sharedObjects.forEach(o=>o.visible=!overview&&sim.activeFloor!==3);
     const followed=[...sim.employees,...sim.visitors].find(e=>e.id===sim.followId&&e.visible);
     if(followed){sim.activeFloor=followed.floor;const target=new THREE.Vector3(followed.pos[0],0,followed.pos[1]);if(tracked!==followed.id){tracked=followed.id;previousTarget.copy(controls.target);camera.position.copy(controls.target.clone().add(camera.position.clone().sub(controls.target).normalize().multiplyScalar(30)));}const next=previousTarget.clone().lerp(target,0.08);camera.position.add(next.clone().sub(controls.target));controls.target.copy(next);previousTarget.copy(next);}else{sim.followId=null;tracked=null;}
-    const evening=Math.min(1,time/1100);sun.color.setRGB(1,0.96-evening*0.22,0.92-evening*0.3);sun.intensity=2.2-evening*.65;floorLabels.forEach(d=>{d.sprite.visible=overview||d.floor===sim.activeFloor;d.sprite.position.y=d.sprite.userData.floorBaseY+(overview?d.floor*11:0);});
-    departmentObjects.forEach(d=>d.objects.forEach(o=>{o.visible=overview||d.floor===sim.activeFloor;o.position.y=o.userData.floorBaseY+(overview?d.floor*11:0);}));
+    const evening=Math.min(1,time/1100);sun.color.setRGB(1,0.96-evening*0.22,0.92-evening*0.3);sun.intensity=2.2-evening*.65;floorLabels.forEach(d=>{d.sprite.visible=overview||d.floor===sim.activeFloor;d.sprite.position.y=d.sprite.userData.floorBaseY+(overview?floorY(d.floor):0);});
+    departmentObjects.forEach(d=>d.objects.forEach(o=>{o.visible=overview||d.floor===sim.activeFloor;o.position.y=o.userData.floorBaseY+(overview?floorY(d.floor):0);}));
+    cafeteriaFood.forEach(o=>o.visible=(overview||sim.activeFloor===3)&&sim.time>=400&&sim.lunch?.status!=='done');
+    kitchenFlames.forEach(o=>{o.visible=(overview||sim.activeFloor===3)&&sim.mode==='working'&&sim.time<400;o.scale.y=1.5+Math.sin(time*12+o.position.x)*.3;});
     const lift=sim.elevator??{floor:0,position:0,phase:'idle',passengers:[]};
     for(const portal of elevatorPortals){
       const opening=lift.floor===portal.floor&&['opening','open','closing'].includes(lift.phase);
@@ -373,7 +558,7 @@ export function createOffice(canvas,sim,onSelect){
       portal.leaves.forEach(({mesh,side})=>mesh.position.x=side*(.46+Math.max(0,amount)*.9));
       const progress=lift.phase==='moving'?Math.abs(lift.position-lift.floor):0;
       portal.indicator.material.color.set(lift.phase==='moving'?'#d4a461':opening?'#77c9a5':'#63796b');
-      const floorText=`${Math.round(lift.position)+1}F${lift.phase==='moving'?(lift.target>lift.position?' \u2191':' \u2193'):''}`;
+      const floorText=`${Math.round(lift.position)===3?'B1':Math.round(lift.position)+1+'F'}${lift.phase==='moving'?(lift.target>lift.position?' \u2191':' \u2193'):''}`;
       if(portal.text!==floorText){
         portal.text=floorText;
         const canvas=portal.indicator.material.map.image,ctx=canvas.getContext('2d');
@@ -382,7 +567,7 @@ export function createOffice(canvas,sim,onSelect){
       }
       portal.indicator.scale.y=.3*(1+progress*.2);
     }
-    liftCar.visible=overview;liftCar.position.y=lift.position*11;
+    liftCar.visible=overview;liftCar.position.y=lift.floor===3||lift.target===3?THREE.MathUtils.lerp(floorY(lift.floor),floorY(lift.target),Math.abs(lift.target-lift.floor)>0?Math.abs(lift.position-lift.floor)/Math.abs(lift.target-lift.floor):0):floorY(lift.position);
     eventProps.forEach(prop=>prop.object.visible=(overview||sim.activeFloor===1)&&sim.events.some(event=>event.kind===prop.kind&&event.venue==='project'&&['이동 중','진행 중'].includes(event.status)));
     entranceDoors.forEach(d=>{const nearby=[...sim.employees,...sim.visitors].some(e=>e.visible&&e.floor===0&&Math.hypot(e.pos[0]-ENTRY[0],e.pos[1]-ENTRY[1])<2.4);d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,.15);d.group.position.z=ENTRY[1]-d.open*1.9;});
     storageDoors.forEach(door=>{
@@ -391,22 +576,35 @@ export function createOffice(canvas,sim,onSelect){
     });
     lobbyDoors.forEach(d=>{const nearby=[...sim.employees,...sim.visitors].some(e=>e.visible&&e.floor===0&&Math.hypot(e.pos[0]-LOBBY.door[0],e.pos[1]-LOBBY.door[1])<2);d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,0.15);d.group.position.z=LOBBY.door[1]-d.open*2.4;});
     doors.forEach(d=>{const nearby=[...sim.employees,...sim.visitors].some(e=>e.visible&&e.floor===(d.floor??sim.activeFloor)&&Math.abs(e.pos[0]-d.x)<1.6&&Math.abs(e.pos[1]-3.5)<2.1);d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,0.15);d.group.position.x=d.x+d.open*1.4;});
-    avatars.forEach((a,i)=>{const e=a.employee,waitingForElevator=e.path[0]?.length===3,moving=e.path.length>0&&!waitingForElevator&&!e.elevatorRide;const home=Math.hypot(e.pos[0]-e.home[0],e.pos[1]-e.home[1])<0.1;const seated=!moving&&!waitingForElevator&&!e.carrying&&(home||['회의 중','회의 대기','면접 중','외부 미팅 중','외부 미팅 대기','라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state));
-      a.receipt.visible=e.carrying==='영수증';a.cargo.visible=!!e.carrying&&!a.receipt.visible;const count=typeof e.carrying==='number'?e.carrying:1;a.cargo.children.forEach((o,index)=>o.visible=Math.floor(index/2)<count);
+    kitchenOfficeDoors.forEach(d=>{
+      const [x,z]=DIETITIAN_OFFICE.kitchenDoor;
+      const nearby=sim.employees.some(e=>e.visible&&e.floor===3&&!e.elevatorRide&&Math.hypot(e.pos[0]-x,e.pos[1]-z)<2.5);
+      d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,.18);d.panel.position.z=-d.open*2;
+    });
+    avatars.forEach((a,i)=>{const e=a.employee,waitingForElevator=e.path[0]?.length===3,moving=e.path.length>0&&!waitingForElevator&&!e.elevatorRide;const home=Math.hypot(e.pos[0]-e.home[0],e.pos[1]-e.home[1])<0.1;const seated=!e.cafe&&(!e.cafeteria||e.casualClothes)&&!moving&&!waitingForElevator&&!e.carrying&&(home||['커피 마시며 동료와 수다 중','커피 마시며 쉬는 중','식사 시작 대기','점심 식사 중','회의 중','회의 대기','면접 중','외부 미팅 중','외부 미팅 대기','라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state));
+      a.coffeeCup.visible=!!e.coffeeCup;
+      a.uniformParts.forEach(o=>o.visible=!e.casualClothes);
+      if(e.role==='영양사'){const clothing=mat(e.casualClothes?'#8b9eb7':e.appearance.top);a.torso.material=clothing;a.arms.forEach(arm=>arm.children[0].material=clothing);}
+      Object.entries(a.kitchenTools).forEach(([kind,o])=>{o.visible=e.cafeteria&&e.kitchenTool===kind;o.rotation.z=!moving&&e.kitchenAction?Math.sin(time*5)*.12:0;});a.mealTray.visible=!!e.meal;a.mealFoods.forEach((o,i)=>o.visible=i<(e.meal?.foods??0));a.receipt.visible=e.carrying==='영수증';a.cargo.visible=!!e.carrying&&!a.receipt.visible;const count=typeof e.carrying==='number'?e.carrying:1;a.cargo.children.forEach((o,index)=>o.visible=Math.floor(index/2)<count);
       a.cart.visible=e.role==='배송 기사';
       if(e.role==='배송 기사'){a.cargo.position.set(0,-.25,.87);a.cargo.scale.set(1.75,1.75,1.75);}else{a.cargo.scale.set(1.7,1.7,1.7);a.cargo.position.set(0,-.28,-.04);}
-      a.group.visible=e.visible&&!e.elevatorRide&&e.restroom?.phase!=='using'&&(overview||e.floor===sim.activeFloor);if(!a.group.visible)return;a.group.position.set(e.pos[0],(overview?e.floor*11:0)+(moving?Math.sin(time*10+i)*0.035:0),e.pos[1]);a.bubble.sprite.visible=!overview;
+      a.group.visible=e.visible&&!e.elevatorRide&&e.restroom?.phase!=='using'&&(overview||e.floor===sim.activeFloor);if(!a.group.visible)return;a.group.position.set(e.pos[0],(overview?floorY(e.floor):0)+(moving?Math.sin(time*10+i)*0.035:0),e.pos[1]);a.bubble.sprite.visible=!overview;
       if(moving){const p=e.path[0];a.body.rotation.y=Math.atan2(p[0]-e.pos[0],p[1]-e.pos[1]);}
       else if(['picking','stocking'].includes(e.supplyTask?.phase))a.body.rotation.y=e.supplyTask.phase==='picking'?Math.PI:e.supplyTask.kind==='paper'?-Math.PI/2:0;
       else if(e.documentTask?.phase==='working')a.body.rotation.y=-Math.PI/2;
       else if(waitingForElevator)a.body.rotation.y=Math.PI/2;
+      else if(e.cafe)a.body.rotation.y=e.barSlot===2?Math.PI/2:Math.PI;
+      else if(e.coffeeVisit?.phase==='chat')a.body.rotation.y=e.coffeeVisit.seat%2===0?Math.PI/2:-Math.PI/2;
+      else if(e.cafeteria&&e.kitchenAction)a.body.rotation.y=['serve','food'].includes(e.kitchenAction)?0:e.pos[1]>-8&&e.pos[0]<10?0:Math.PI;
+      else if(e.lunchStep==='seated'){const row=CAFETERIA.tableZs.reduce((a,b)=>Math.abs(b-e.pos[1])<Math.abs(a-e.pos[1])?b:a);a.body.rotation.y=e.pos[1]<row?0:Math.PI;}
+      else if(typeof e.lunchStep==='number')a.body.rotation.y=Math.PI;
       else if(home)a.body.rotation.y=e.facing;
       else if(e.state==='회의 참관 중')a.body.rotation.y=0;
       else if(['라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state))a.body.rotation.y=Math.PI;
       else if(e.state==='손 씻는 중')a.body.rotation.y=Math.PI;
       else if(e.state==='커피 마시는 중')a.body.rotation.y=e.pos[1]<7?0:Math.PI;
-      else if(['회의 중','회의 대기','면접 중','외부 미팅 중','외부 미팅 대기','라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state)){const cx=ROOMS.find(r=>Math.abs(r.x-e.pos[0])<3.8)?.x??0;const seat=e.meetingSeat??e.seat;a.body.rotation.y=seat===5?0:seat===4?Math.PI:(e.pos[0]<cx?Math.PI/2:-Math.PI/2);}
-      a.body.position.y=seated?-0.12:0;a.legs.forEach((l,j)=>{l.rotation.x=seated?-1.35:moving?Math.sin(time*10+j*Math.PI)*0.5:0;});a.arms.forEach((arm,j)=>{arm.rotation.x=(e.documentTask?.phase==='working'||['picking','stocking'].includes(e.supplyTask?.phase))?-1+Math.sin(time*5+j)*.15:moving?Math.sin(time*10+j*Math.PI+Math.PI)*0.4:e.state==='손 씻는 중'?-0.9+Math.sin(time*6+j)*0.1:seated?-0.65+Math.sin(time*5+j)*0.06:Math.sin(time*1.7+i)*0.04;});a.bubble.update();
+      else if(['커피 마시며 동료와 수다 중','커피 마시며 쉬는 중','식사 시작 대기','점심 식사 중','회의 중','회의 대기','면접 중','외부 미팅 중','외부 미팅 대기','라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state)){const cx=ROOMS.find(r=>Math.abs(r.x-e.pos[0])<3.8)?.x??0;const seat=e.meetingSeat??e.seat;a.body.rotation.y=seat===5?0:seat===4?Math.PI:(e.pos[0]<cx?Math.PI/2:-Math.PI/2);}
+      a.body.position.y=seated?-0.12:0;a.legs.forEach((l,j)=>{l.rotation.x=seated?-1.35:moving?Math.sin(time*10+j*Math.PI)*0.5:0;});a.arms.forEach((arm,j)=>{arm.rotation.x=e.cafe&&!moving&&e.baristaAction?-1+Math.sin(time*5+j)*.18:e.coffeeCup&&j===1?-.8:e.cafeteria&&!moving&&e.kitchenAction?-1+Math.sin(time*(e.kitchenAction==='knife'?9:4)+j)*.22:e.meal?-1.05+(seated?Math.sin(time*4+j)*.12:0):(e.documentTask?.phase==='working'||['picking','stocking'].includes(e.supplyTask?.phase))?-1+Math.sin(time*5+j)*.15:moving?Math.sin(time*10+j*Math.PI+Math.PI)*0.4:e.state==='손 씻는 중'?-0.9+Math.sin(time*6+j)*0.1:seated?-0.65+Math.sin(time*5+j)*0.06:Math.sin(time*1.7+i)*0.04;});a.bubble.update();
     });controls.update();renderer.render(scene,camera);
   },reset(){sim.followId=null;camera.position.set(...(sim.buildingOverview?[48,52,65]:initial));controls.target.set(0,sim.buildingOverview?11:0,0);},dispose(){observer.disconnect();canvas.removeEventListener('mousedown',preventMiddleScroll);canvas.removeEventListener('pointerdown',pointerDown);canvas.removeEventListener('pointerup',pointerUp);controls.dispose();const allMaterials=new Set();scene.traverse(o=>{o.geometry?.dispose();if(o.material)allMaterials.add(o.material);});allMaterials.forEach(m=>{m.map?.dispose();m.dispose();});renderer.dispose();}};
 }
