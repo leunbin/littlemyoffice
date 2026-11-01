@@ -71,11 +71,15 @@ function tickElevator(s,dt){
   lift.remaining-=dt;if(lift.remaining<=0){if(lift.passengers.length)moveTo(lift.destination);else lift.phase='idle';}
  }
 }
-function work(s,e){e.state=e.stationary?receptionistStatus(s,e):e.role==='대표'?'경영 현황 확인 중':e.role==='팀장'?'팀 업무 검토 중':DEPTS[e.dept].tasks[Math.floor(s.random()*4)];e.next=s.time+8+s.random()*15;}
-export function startDay(s){if(s.mode!=='idle')return;s.mode='working';s.elevator=null;s.time=0;s.day=(s.day||0)+1;s.followId=null;s.schedule=makeSchedule(s.random);s.logs=[];s.employees.forEach((e,i)=>{e.visible=false;e.floor=0;e.pos=[...ENTRY];e.path=[];e.state='출근 대기';e.next=i*0.5;e.visiting=null;e.meetingSeat=null;e.meetingKind=null;e.assignment=null;e.pendingInterview=null;e.pendingClient=null;e.restroom=null;e.documentTask=null;e.supplyTask=null;e.elevatorRide=null;e.carrying=null;e.restroomPreference=e.id%2;e.restroomAt=100+(e.id%9)*17+s.random()*60;});setupBusinessDay(s);log(s,'좋은 아침! 팀별 회의 1회와 대표·팀장 회의가 배정됐어요.');}
+function work(s,e){e.state=e.stationary?receptionistStatus(s,e):e.role==='대표'?'경영 현황 확인 중':e.role==='팀장'?'팀 업무 검토 중':DEPTS[e.dept].tasks[Math.floor(s.random()*4)];e.next=s.time+25+s.random()*30;}
+export function startDay(s){if(s.mode!=='idle')return;s.mode='working';s.elevator=null;s.time=0;s.day=(s.day||0)+1;s.followId=null;s.schedule=makeSchedule(s.random);s.logs=[];s.employees.forEach((e,i)=>{e.visible=false;e.floor=0;e.pos=[...ENTRY];e.path=[];e.state='출근 대기';e.next=i*0.5;e.visiting=null;e.meetingSeat=null;e.meetingKind=null;e.assignment=null;e.pendingInterview=null;e.pendingClient=null;e.restroom=null;e.documentTask=null;e.supplyTask=null;e.elevatorRide=null;e.carrying=null;e.restroomPreference=e.id%2;e.restroomAt=300+(e.id%9)*19+s.random()*180;});setupBusinessDay(s);log(s,'좋은 아침! 팀별 회의 1회와 대표·팀장 회의가 배정됐어요.');}
 export function endDay(s){if(s.mode!=='working')return;s.mode='leaving';s.schedule.forEach(m=>{if(m.status!=='done')m.status='cancelled';});s.interviews.forEach(m=>{if(m.status!=='완료')m.status='취소';});s.clientMeetings.forEach(m=>{if(m.status!=='완료')m.status='취소';});s.events.forEach(event=>{if(event.status!=='완료')event.status='취소';});(s.deliveries||[]).forEach(d=>{if(d.status!=='완료')d.status='취소';});s.visitors.forEach(e=>{if(e.visible){e.state='퇴장 중';route(e,ENTRY,0);}});s.employees.forEach(e=>{e.assignment=null;e.pendingInterview=null;e.pendingClient=null;e.restroom=null;e.documentTask=null;e.supplyTask=null;e.carrying=null;});s.supplyJobs?.forEach(job=>{if(job.status!=='done')job.status='cancelled';});s.employees.forEach(e=>{if(e.visible){e.state='퇴근 중';route(e,ENTRY,0);}else e.state='퇴근';});log(s,'오늘도 수고했어요. 모든 직원이 퇴근합니다.');}
 export function tick(s,dt){
   if(s.mode==='idle')return;s.time+=dt;
+  if(s.mobilityVersion!==1){
+    s.mobilityVersion=1;
+    for(const e of s.employees)if(!e.restroom)e.restroomAt=Math.max(e.restroomAt??0,s.time+240+(e.id%9)*19);
+  }
   tickElevator(s,dt);
   if(s.mode==='working'){
     const ceo=s.employees.find(e=>e.role==='대표');
@@ -106,10 +110,11 @@ export function tick(s,dt){
       else if(s.mode==='working'&&s.time>e.next&&!e.pendingInterview&&!e.pendingClient&&!['회의 중','회의 대기'].includes(e.state)){
         if(['커피 마시는 중','동료와 협업 중','회의 참관 중'].includes(e.state)){e.state='자리로 이동 중';route(e,e.home);}
         else if(e.role==='대표'){if(e.floor!==2||Math.hypot(e.pos[0]-CEO_HOME[0],e.pos[1]-CEO_HOME[1])>0.2){e.state='대표실로 복귀 중';route(e,CEO_HOME,2);continue;}const active=s.schedule.find(m=>m.status==='active'&&m.floor===e.floor);if(active){e.visiting=active.room;e.state='회의 참관 이동 중';route(e,[ROOMS[active.room].x,4.9],active.floor);}else e.next=s.time+10;}
-        else if(s.random()<.08&&startSupplyPickup(s,e)){}
-        else if(s.random()<.22&&startDocumentTask(s,e)){}
-        else if(s.random()<(e.personality==='커피 애호가'||e.energy<40?0.7:0.25)){e.state='탕비실로 이동 중';route(e,pantrySpotsForFloor(e.homeFloor)[e.id%PANTRY_SPOTS.length]);}
-        else if(s.random()<(e.personality==='사교형'?0.8:0.4)){const coworker=s.employees.find(person=>person.dept===e.dept&&person.seat===(e.seat+1)%5);e.state='동료에게 이동 중';route(e,[coworker.home[0]+0.55,coworker.home[1]]);}
+        else if(e.dept===7&&(s.deliveries||[]).some(d=>s.time>=d.at&&!['완료','취소'].includes(d.status))){work(s,e);}
+        else if(s.random()<.015&&startSupplyPickup(s,e)){}
+        else if(s.random()<.035&&startDocumentTask(s,e)){}
+        else if(s.random()<(e.personality==='커피 애호가'||e.energy<40?0.18:0.045)){e.state='탕비실로 이동 중';route(e,pantrySpotsForFloor(e.homeFloor)[e.id%PANTRY_SPOTS.length]);}
+        else if(s.random()<(e.personality==='사교형'?0.12:0.025)){const coworker=s.employees.find(person=>person.dept===e.dept&&person.seat===(e.seat+1)%5);e.state='동료에게 이동 중';route(e,[coworker.home[0]+0.55,coworker.home[1]]);}
         else work(s,e);
       }
     }
@@ -159,9 +164,9 @@ function tickBusiness(s,dt){
  for(const e of s.employees){e.energy=Math.max(15,Math.min(100,e.energy+dt*(e.state.includes('커피')?0.5:-0.012)));e.mood=e.energy<40?'휴식이 필요해요':'좋음';}
  tickInterviews(s);
  tickClientMeetings(s);
+ tickDeliveries(s,free);
  tickRestrooms(s);
  tickStockroom(s,free);
- tickDeliveries(s,free);
  const coordinator=s.employees.find(e=>e.dept===7&&e.role==='팀장'&&free(e));
  if(coordinator){
   const bookings=[...s.schedule,...s.interviews,...s.clientMeetings];
@@ -260,7 +265,7 @@ function tickOfficeTour(s,event,free){
 function tickRestrooms(s){
  for(const e of s.employees){
   if(!e.visible||e.stationary)continue;
-  if(e.restroomAt==null)e.restroomAt=s.time+45+(e.id%9)*13;
+  if(e.restroomAt==null)e.restroomAt=s.time+300+(e.id%9)*19;
   if(!e.restroom){
    if(s.time<e.restroomAt||e.path.length||e.assignment||e.pendingInterview||e.pendingClient||['회의 중','회의 대기','회의실로 이동 중','출근 중','출근 대기','퇴근 중'].includes(e.state))continue;
    const roomIndex=e.restroomPreference??e.id%2;
@@ -274,7 +279,7 @@ function tickRestrooms(s){
   if(visit.phase==='walking'&&!e.path.length){visit.phase='using';visit.until=s.time+12+s.random()*10;e.state='화장실 이용 중';e.pos=[room.x-.8,room.z+(visit.slot===0?-.92:.92)];}
   if(visit.phase==='using'&&s.time>=visit.until){visit.phase='to-sink';e.state='손 씻으러 이동 중';route(e,[room.x+.9,room.z-1.35],visit.floor);}
   if(visit.phase==='to-sink'&&!e.path.length){visit.phase='washing';visit.until=s.time+3.5;e.state='손 씻는 중';}
-  if(visit.phase==='washing'&&s.time>=visit.until){e.restroom=null;e.restroomAt=s.time+180+s.random()*120;e.state='자리로 이동 중';route(e,e.home,e.homeFloor);}
+  if(visit.phase==='washing'&&s.time>=visit.until){e.restroom=null;e.restroomAt=s.time+600+s.random()*360;e.state='자리로 이동 중';route(e,e.home,e.homeFloor);}
  }
 }
 function tickInterviews(s){
@@ -414,9 +419,16 @@ function tickDeliveries(s,free){
   if(d.status==='도장 확인 중'&&s.time-d.stampedAt>=4){driver.carrying=null;driver.state='퇴장 중';route(driver,ENTRY,0);d.receivedCount=d.count;desk.state='경영지원팀에 입고 연락 중';desk.contactUntil=s.time+4;d.status='경영지원팀 호출 중';d.notifiedAt=s.time;log(s,`서지은 · ${d.count}개 수령 도장 확인 후 경영지원팀 연락`);}
   if(d.status==='경영지원팀 호출 중'&&s.time-d.notifiedAt>=4){
    if(desk.assignment===d.id){desk.assignment=null;desk.state='방문객 응대 대기';}
-   const team=s.employees.filter(e=>e.dept===7&&e.role==='팀원'&&free(e)),needed=d.kind==='parcel'?2:4;
+   const needed=d.kind==='parcel'?2:4;
+   const atDesk=e=>e.visible&&!e.path.length&&!e.elevatorRide&&e.floor===e.homeFloor&&Math.hypot(e.pos[0]-e.home[0],e.pos[1]-e.home[1])<.15;
+   const seated=s.employees.filter(e=>e.dept===7&&e.role==='팀원'&&atDesk(e)&&!e.pendingInterview&&!e.pendingClient&&!e.restroom&&(!e.assignment||(e.assignment==='stockroom'&&e.supplyTask?.kind==='personal')));
+   if(seated.length>=needed)for(const e of seated){
+    if(e.supplyTask?.kind==='personal'){e.supplyTask=null;e.assignment=null;e.carrying=null;}
+    e.next=s.time;
+   }
+   const team=s.employees.filter(e=>e.dept===7&&e.role==='팀원'&&free(e)).sort((a,b)=>Number(atDesk(b))-Number(atDesk(a)));
    if(team.length<needed){d.waitReason=`경영지원팀 ${needed}명의 기존 일정 종료 대기`;continue;}
-   d.members=team.slice(0,needed).map(e=>e.id);d.waitReason='';d.status='물품 인수 중';d.members.forEach((id,i)=>{const e=s.employees.find(e=>e.id===id);e.assignment=d.id;e.state='데스크 앞 배송 물품 인수하러 이동 중';route(e,[11.3+i*.65,-2.3],0);});
+   d.members=team.slice(0,needed).map(e=>e.id);d.waitReason='';d.status='물품 인수 중';d.members.forEach((id,i)=>{const e=s.employees.find(e=>e.id===id);if(atDesk(e))log(s,`${e.name} · 자리 업무 마무리 후 배송 처리`);e.assignment=d.id;e.state='데스크 앞 배송 물품 인수하러 이동 중';route(e,[11.3+i*.65,-2.3],0);});
   }
   if(d.status==='물품 인수 중'&&workers.length&&workers.every(e=>!e.path.length)){
    d.receivedCount=0;d.status='배달 중';

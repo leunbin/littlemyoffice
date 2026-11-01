@@ -175,8 +175,8 @@ export function createOffice(canvas,sim,onSelect){
       box(13.8,0.11,-5,8.2,0.12,15.8,'#dfd1c6');
       for(let x=10.4;x<18;x+=1.2)box(x,0.178,-5,0.018,0.01,15.8,'#c9b9ae');
       box(9.6,1.9,-11.55,.24,3.8,2.9,'#e4d8d0');
-      box(9.6,1.9,-5.45,.24,3.8,6.7,'#e4d8d0');
-      box(9.6,1.9,2.15,0.24,3.8,1.9,'#e4d8d0');
+      box(9.6,1.9,-4.9375,.24,3.8,7.625,'#e4d8d0');
+      box(9.6,1.9,2.1125,.24,3.8,1.975,'#e4d8d0');
       box(9.6,3.5,0,0.28,0.6,2.4,'#c4aaa8');
 
       const door=new THREE.Group();door.position.set(LOBBY.door[0],0,LOBBY.door[1]);scene.add(door);
@@ -391,7 +391,7 @@ export function createOffice(canvas,sim,onSelect){
     });
     lobbyDoors.forEach(d=>{const nearby=[...sim.employees,...sim.visitors].some(e=>e.visible&&e.floor===0&&Math.hypot(e.pos[0]-LOBBY.door[0],e.pos[1]-LOBBY.door[1])<2);d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,0.15);d.group.position.z=LOBBY.door[1]-d.open*2.4;});
     doors.forEach(d=>{const nearby=[...sim.employees,...sim.visitors].some(e=>e.visible&&e.floor===(d.floor??sim.activeFloor)&&Math.abs(e.pos[0]-d.x)<1.6&&Math.abs(e.pos[1]-3.5)<2.1);d.open=THREE.MathUtils.lerp(d.open,nearby?1:0,0.15);d.group.position.x=d.x+d.open*1.4;});
-    avatars.forEach((a,i)=>{const e=a.employee,moving=e.path.length>0;const home=Math.hypot(e.pos[0]-e.home[0],e.pos[1]-e.home[1])<0.1;const seated=!moving&&!e.carrying&&(home||['회의 중','회의 대기','면접 중','외부 미팅 중','외부 미팅 대기','라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state));
+    avatars.forEach((a,i)=>{const e=a.employee,waitingForElevator=e.path[0]?.length===3,moving=e.path.length>0&&!waitingForElevator&&!e.elevatorRide;const home=Math.hypot(e.pos[0]-e.home[0],e.pos[1]-e.home[1])<0.1;const seated=!moving&&!waitingForElevator&&!e.carrying&&(home||['회의 중','회의 대기','면접 중','외부 미팅 중','외부 미팅 대기','라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state));
       a.receipt.visible=e.carrying==='영수증';a.cargo.visible=!!e.carrying&&!a.receipt.visible;const count=typeof e.carrying==='number'?e.carrying:1;a.cargo.children.forEach((o,index)=>o.visible=Math.floor(index/2)<count);
       a.cart.visible=e.role==='배송 기사';
       if(e.role==='배송 기사'){a.cargo.position.set(0,-.25,.87);a.cargo.scale.set(1.75,1.75,1.75);}else{a.cargo.scale.set(1.7,1.7,1.7);a.cargo.position.set(0,-.28,-.04);}
@@ -399,6 +399,7 @@ export function createOffice(canvas,sim,onSelect){
       if(moving){const p=e.path[0];a.body.rotation.y=Math.atan2(p[0]-e.pos[0],p[1]-e.pos[1]);}
       else if(['picking','stocking'].includes(e.supplyTask?.phase))a.body.rotation.y=e.supplyTask.phase==='picking'?Math.PI:e.supplyTask.kind==='paper'?-Math.PI/2:0;
       else if(e.documentTask?.phase==='working')a.body.rotation.y=-Math.PI/2;
+      else if(waitingForElevator)a.body.rotation.y=Math.PI/2;
       else if(home)a.body.rotation.y=e.facing;
       else if(e.state==='회의 참관 중')a.body.rotation.y=0;
       else if(['라운지에서 대기 중','방문 목적 설명 중','영업 담당자 기다리는 중'].includes(e.state))a.body.rotation.y=Math.PI;
