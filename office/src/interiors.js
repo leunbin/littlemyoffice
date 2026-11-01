@@ -1,3 +1,4 @@
+import {DOCUMENT_STATION} from './layout.js';
 import * as THREE from 'three';
 
 const THEMES = [
@@ -5,16 +6,6 @@ const THEMES = [
   {accent:'#667f8a',carpet:'#aab6bb',wall:'#d7e1e2',title:'02  PRODUCT & CREATIVE',subtitle:'기획에서 제품까지, 함께 만드는 공간'},
   {accent:'#6e7767',carpet:'#b1b5a8',wall:'#d8dbd0',title:'03  MANAGEMENT',subtitle:'회사의 다음을 준비하는 공간'},
 ];
-
-function carpetMaterial(color){
-  const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
-  const ctx=canvas.getContext('2d');ctx.fillStyle=color;ctx.fillRect(0,0,128,128);
-  // Deterministic woven fibers and seams keep the floor quiet at every zoom level.
-  for(let y=0;y<128;y+=3)for(let x=0;x<128;x+=3){ctx.fillStyle=(x*13+y*7)%5<2?'#ffffff18':'#26303412';ctx.fillRect(x,y,1,2);}
-  ctx.strokeStyle='#35413c16';ctx.strokeRect(.5,.5,127,127);
-  const texture=new THREE.CanvasTexture(canvas);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(6,10);texture.colorSpace=THREE.SRGBColorSpace;
-  return new THREE.MeshStandardMaterial({map:texture,roughness:1});
-}
 
 export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,employees}){
   const shelf=(x,z,width=2.5,color='#b5a18b')=>{
@@ -40,40 +31,60 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
 
   for(let floor=0;floor<3;floor++){
     const before=new Set(scene.children),theme=THEMES[floor];
-    // Material zoning makes circulation, work areas and rooms read as separate spaces.
-    box(0,.078,0,35.65,.022,25.6,floor===0?'#ddd8cc':floor===1?'#dce0dd':'#ddd9ce');
-    box(-2.4,.097,0,25.4,.025,2.3,'#b7b5aa');
-    [-1,1].forEach(side=>box(-2.4,.115,side*1.14,25.4,.01,.035,theme.accent));
+    // Continuous porcelain tile flooring across departments and circulation.
+    box(0,.19,0,35.65,.04,25.6,'#e5e1d8');
+    for(let x=-17;x<18;x+=2)box(x,.212,0,.018,.004,25.6,'#cbc8c0');
+    for(let z=-12;z<13;z+=2)box(0,.212,z,35.65,.004,.018,'#cbc8c0');
+    // Equipment faces east toward the main entrance, with a shared access aisle.
+    function equipment(position,build){
+      const group=new THREE.Group();group.position.set(position[0],0,position[1]);
+      group.rotation.y=DOCUMENT_STATION.facing;scene.add(group);
+      const part=(x,y,z,w,h,d,color)=>box(x,y,z,w,h,d,color,group);
+      build(part);
+    }
+    for(const cabinet of DOCUMENT_STATION.cabinets)equipment(cabinet.position,part=>{
+      part(0,1.35,0,1.05,2.28,.6,'#d9ddd7');
+      part(0,.25,0,1.08,.1,.64,'#707a74');
+      part(0,2.51,0,1.1,.07,.65,'#abb5ab');
+      for(const side of [-1,1]){
+        part(side*.255,1.35,.315,.49,2.16,.035,'#e9ebe3');
+        part(side*.08,1.35,.35,.035,.3,.04,'#6b7770');
+        part(side*.255,1.94,.34,.27,.12,.02,'#faf8ee');
+      }
+    });
+    equipment(DOCUMENT_STATION.copier.position,part=>{
+      part(0,.91,0,1.55,1.38,1.15,'#d9dfdb');
+      part(0,1.64,0,1.62,.12,1.2,'#53635d');
+      part(-.14,1.77,-.1,1.18,.15,.9,'#f0f1e9');
+      part(-.14,1.88,-.17,.95,.09,.58,'#a7b6ad');
+      part(.55,1.83,.35,.36,.14,.28,'#45534f');
+      part(.55,1.91,.35,.27,.025,.18,'#7fb3bb');
+      for(const y of [.52,.86,1.2]){
+        part(0,y,.59,1.4,.025,.025,'#9ba79f');
+        part(0,y+.1,.62,.42,.055,.055,'#65766c');
+      }
+      part(-.45,1.42,.64,.65,.13,.1,'#3f4e48');
+      part(-.45,1.37,.77,.69,.04,.35,'#a7b3ab');
+    });
     const departments=[...new Set(employees.filter(e=>e.homeFloor===floor&&e.role==='팀장').map(e=>e.dept))];
     departments.forEach(dept=>{
       const team=employees.filter(e=>e.dept===dept),cx=team.find(e=>e.role==='팀장').home[0];
-      box(cx,.178,-6.5,5.44,.025,10.15,carpetMaterial(theme.carpet));
-      cabinet(cx,-12.04,3.4);
-      // Acoustic desk dividers, cable troughs and discreet team signs.
-      box(cx,1.25,-6.7,3.3,.55,.09,theme.accent);
-      box(cx,.64,-6.7,2.7,.16,.18,'#697471');
-      box(cx+2.12,.68,-11.7,.55,1.3,.62,'#b7beb6');
+      // Cable troughs remain beneath the open desks.
+      box(cx,.64,-6.1,4.1,.16,.18,'#697471');
       team.forEach(e=>{
         const direction=Math.cos(e.facing),z=e.home[1]+direction*.7;
         box(e.home[0]+.5,.4,z,.4,.6,.48,'#d1d4cf');
         [0,1,2].forEach(i=>box(e.home[0]+.5,.3+i*.17,z-direction*.25,.2,.022,.025,'#87938b'));
-        if(dept===3){const monitor=new THREE.Group();monitor.position.set(e.home[0]+.56,1.38,e.home[1]+direction*1.02);monitor.rotation.y=e.facing;scene.add(monitor);box(0,0,0,.52,.48,.07,'#3e4a4d',monitor);box(0,0,-.04,.44,.38,.01,'#273f49',monitor);}
       });
       strip(cx,-6.6,3.9);
     });
     const centers=departments.map(dept=>employees.find(e=>e.dept===dept&&e.role==='팀장').home[0]).sort((a,b)=>a-b);
     for(let i=1;i<centers.length;i++){
-      const x=(centers[i-1]+centers[i])/2,z=-7.2;
-      // Slim drawer partitions keep both desk access lanes and the main corridor open.
-      box(x,.72,z,.65,1.25,3.6,'#d6d8ce');box(x,1.39,z,.73,.09,3.7,'#a58c73');
-      for(const side of [-1,1])for(let col=0;col<3;col++)for(let row=0;row<3;row++){
-        const dz=z-1.2+col*1.2,y=.35+row*.36;
-        box(x+side*.335,y,dz,.025,.32,1.1,'#e5e4db');box(x+side*.36,y+.04,dz,.035,.045,.3,'#7e8b82');
-      }
-      for(const dz of [-1.05,1.05]){
-        box(x,1.59,z+dz,.38,.32,.38,'#d1b39a');
-        sphere(x,1.98,z+dz,.3,'#789375',scene,[.85,1.15,.85]);sphere(x+.12,1.91,z+dz+.08,.19,'#a4b28b');
-      }
+      const x=(centers[i-1]+centers[i])/2;
+      // Thin fixed partitions stop before the department entrance.
+      box(x,1.4,-7.55,.18,2.8,9.5,'#dedbd4');
+      box(x,.32,-7.55,.2,.22,9.5,'#b5b4ad');
+      box(x,2.82,-7.55,.22,.06,9.5,'#c6c4bb');
     }
     // Window wall: dark mullions and spandrels replace pastel wall panels.
     box(0,.36,-12.65,35.5,.45,.15,'#a6ada8');
@@ -96,17 +107,13 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
     });
     if(floor===0){
       // Client floor: stone, oak, branded reception and a properly equipped back office.
-      box(13,.18,-2.65,3.6,.025,1.8,'#b6afa0');
       box(13,.52,-3.78,3.05,.9,.06,'#a58c73');
       for(let x=11.65;x<14.5;x+=.16)box(x,.52,-3.73,.035,.86,.045,'#d7c3a9');
-      label('우리의 작은 회사',13,2.95,-11.85,'#536660',.63);
-      label('WELCOME  /  INFORMATION',13,2.45,-11.8,'#8d9788',.33);
       box(15.5,.23,7.8,4.2,.045,6.1,'#c4bba9');
       strip(13,-7,4.2);strip(13,7,4.2);
     }
     if(floor===1){
       // Product floor: acoustic collaboration alcove and design review pin-up wall.
-      box(13.3,.15,-7.7,6.1,.08,7.5,carpetMaterial('#b4b4a6'));
       box(13.3,1.45,-11.3,5.8,2.8,.18,'#7e918d');
       for(let x=10.6;x<16.3;x+=.38)box(x,1.45,-11.17,.075,2.7,.06,'#b9c6b6');
       sofa(13.3,-9.8,3.5,'#718a84');sofa(16,-7,2.2,'#9ca78e',-Math.PI/2);
@@ -119,8 +126,7 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
     }
     if(floor===2){
       // Executive floor: quieter finishes, records storage and a strategy corner.
-      shelf(6,-12,3.8,'#9e8b72');cabinet(-7,-12,3.4);printer(10.5,-3);
-      box(6,.17,-7.4,4.5,.05,6,carpetMaterial('#bdb5a3'));
+      shelf(6,-12,3.8,'#9e8b72');printer(10.5,-3);
       sofa(6,-9.3,3.3,'#777f6d');lowTable(6,-7.3,2,1.1);
       board(6,-5,'STRATEGY & FINANCE',theme.accent);
       label('STRATEGY LOUNGE',6,2.8,-11.7,theme.accent,.5);

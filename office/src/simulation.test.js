@@ -73,3 +73,45 @@ test('parcels go to home desks without interrupting busy recipients',()=>{
  }
  assert.equal(d.status,'완료');assert.ok(d.packages.every(p=>p.deliveredAt!=null));
 });
+
+
+test('restored leaders face their staff even when saved with the old direction',()=>{
+ const original=createSimulation();
+ original.employees.filter(e=>e.role==='\uD300\uC7A5').forEach(e=>{e.facing=Math.PI;});
+ let data;
+ const storage={setItem(key,value){data=value;},getItem(){return data;}};
+ saveSimulation(original,storage);
+ const restored=loadSimulation(storage);
+ assert.ok(restored);
+ for(const leader of restored.employees.filter(e=>e.role==='\uD300\uC7A5')){
+  const staff=restored.employees.filter(e=>e.dept===leader.dept&&e.role==='\uD300\uC6D0');
+  assert.equal(leader.facing,0);
+  assert.ok(staff.every(e=>e.home[1]>leader.home[1]));
+ }
+});
+
+
+test('desk routes clear enlarged desktops and department walls',()=>{
+ const s=createSimulation();
+ for(let floor=0;floor<3;floor++){
+  const team=s.employees.filter(e=>e.homeFloor===floor&&e.dept>=0&&e.dept<8);
+  const centers=[...new Set(team.map(e=>s.employees.find(l=>l.dept===e.dept&&l.role==='\uD300\uC7A5').home[0]))].sort((a,b)=>a-b);
+  const walls=centers.slice(1).map((c,i)=>(c+centers[i])/2);
+  for(const employee of team){
+   let a=employee.home;
+   for(const b of planRoute(a,[8,0],floor)){
+    const steps=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.05);
+    for(let i=0;i<=steps;i++){
+     const t=steps?i/steps:0,x=a[0]+(b[0]-a[0])*t,z=a[1]+(b[1]-a[1])*t;
+     for(const desk of team){
+      const dz=desk.home[1]+Math.cos(desk.facing)*1.05;
+      const halfWidth=(desk.role==='\uD300\uC7A5'?1.9:1.5)*.75;
+      assert.ok(!(Math.abs(x-desk.home[0])<halfWidth+.12&&Math.abs(z-dz)<1.02),'route intersects desktop');
+     }
+     for(const wall of walls)assert.ok(!(Math.abs(x-wall)<.29&&z>-12.5&&z<-2.6),'route intersects partition');
+    }
+    a=b;
+   }
+  }
+ }
+});
