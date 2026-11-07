@@ -1,4 +1,4 @@
-import {DOCUMENT_STATION} from './layout.js';
+import {DOCUMENT_STATION,TEAM_BAYS} from './layout.js';
 import * as THREE from 'three';
 
 const THEMES = [
@@ -68,17 +68,22 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
     });
     const departments=[...new Set(employees.filter(e=>e.homeFloor===floor&&e.role==='팀장').map(e=>e.dept))];
     departments.forEach(dept=>{
-      const team=employees.filter(e=>e.dept===dept),cx=team.find(e=>e.role==='팀장').home[0];
+      const team=employees.filter(e=>e.dept===dept),leader=team.find(e=>e.role==='팀장'),cx=leader.home[0],offset=leader.home[1]+11;
       // Cable troughs remain beneath the open desks.
-      box(cx,.64,-6.1,4.1,.16,.18,'#697471');
+      box(cx,.64,-6.1+offset,4.1,.16,.18,'#697471');
       team.forEach(e=>{
         const direction=Math.cos(e.facing),z=e.home[1]+direction*.7;
         box(e.home[0]+.5,.4,z,.4,.6,.48,'#d1d4cf');
         [0,1,2].forEach(i=>box(e.home[0]+.5,.3+i*.17,z-direction*.25,.2,.022,.025,'#87938b'));
       });
-      strip(cx,-6.6,3.9);
+      strip(cx,-6.6+offset,3.9);
     });
-    const centers=departments.map(dept=>employees.find(e=>e.dept===dept&&e.role==='팀장').home[0]).sort((a,b)=>a-b);
+    const centers=departments.map(dept=>employees.find(e=>e.dept===dept&&e.role==='팀장').home[0]).filter(x=>TEAM_BAYS.includes(x)).sort((a,b)=>a-b);
+    for(const x of TEAM_BAYS.filter(x=>!centers.includes(x))){
+      box(x,.23,-7.5,5.6,.035,10,'#dce0d5');
+      label('확장 예정 · 공용 라운지',x,3.08,-2.2,theme.accent,.45);
+      label('FLEX / FUTURE TEAM',x,.3,-1.6,'#7c8b79',.38);
+    }
     for(let i=1;i<centers.length;i++){
       const x=(centers[i-1]+centers[i])/2;
       // Thin fixed partitions stop before the department entrance.
@@ -95,9 +100,10 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
     box(-17.85,.16,0,.08,.22,25.5,'#8c938b');
     label(theme.title,-4,3.5,-12.25,theme.accent,.78);
     label(theme.subtitle,-4,2.98,-12.2,'#70796e',.37);
-    box(17.15,1.55,-3.1,.5,1.45,.12,'#586560');box(-17.86,1.5,1.6,.06,2.4,2.2,theme.wall);label(`${floor+1}F`,17.15,2.5,-3.1,theme.accent,.5);
+    if(floor!==0){box(17.15,1.55,-3.1,.5,1.45,.12,'#586560');label(`${floor+1}F`,17.15,2.5,-3.1,theme.accent,.5);}
+    box(-17.86,1.5,1.6,.06,2.4,2.2,theme.wall);
     // Meeting rooms: presentation screens, cameras, notepads and service credenzas.
-    [-12,-4].forEach(x=>{
+    (floor===2?[]:[-12,-4]).forEach(x=>{
       box(x,1.9,11.05,3.1,1.65,.12,'#344443');box(x,1.9,10.97,2.85,1.4,.035,'#67858b');
       box(x,2.82,10.98,.35,.1,.12,'#4f5b58');sphere(x,2.82,10.89,.035,'#192823');
       label(floor===0?'INTERVIEW & MEETING':floor===1?'PROJECT REVIEW':'MANAGEMENT MEETING',x,2,10.88,'#ecede2',.36);
@@ -107,36 +113,22 @@ export function remodelOffice({scene,box,sphere,label,plant,departmentObjects,em
     });
     if(floor===0){
       // Client floor: stone, oak, branded reception and a properly equipped back office.
-      box(13,.52,-3.78,3.05,.9,.06,'#a58c73');
-      for(let x=11.65;x<14.5;x+=.16)box(x,.52,-3.73,.035,.86,.045,'#d7c3a9');
       box(15.5,.23,7.8,4.2,.045,6.1,'#c4bba9');
       strip(13,-7,4.2);strip(13,7,4.2);
     }
     if(floor===1){
-      // Product floor: acoustic collaboration alcove and design review pin-up wall.
-      box(13.3,1.45,-11.3,5.8,2.8,.18,'#7e918d');
-      for(let x=10.6;x<16.3;x+=.38)box(x,1.45,-11.17,.075,2.7,.06,'#b9c6b6');
-      sofa(13.3,-9.8,3.5,'#718a84');sofa(16,-7,2.2,'#9ca78e',-Math.PI/2);
-      lowTable(13.3,-7.8,2,1.2);box(13.1,.58,-7.8,.65,.045,.42,'#e3dac6');
-      label('COLLABORATION LAB',13.2,3,-11,'#536e6b',.62);
-      board(11,-5,'DESIGN REVIEW',theme.accent);printer(10.5,-3);
-      shelf(10.8,-12,2.6,'#c5bb9f');strip(13,-7.7,4.5);
+      printer(10.5,-3);
       box(4,1.7,10.7,3.8,1.7,.1,'#43565a');label('SPRINT  /  THIS WEEK',4,2,10.55,'#e0e7dc',.45);
       [-1,0,1].forEach((n)=>box(4+n,1.5,10.6,.7,.4,.04,['#c9b994','#8caca2','#b7a7be'][n+1]));
     }
     if(floor===2){
       // Executive floor: quieter finishes, records storage and a strategy corner.
-      shelf(6,-12,3.8,'#9e8b72');printer(10.5,-3);
-      sofa(6,-9.3,3.3,'#777f6d');lowTable(6,-7.3,2,1.1);
-      board(6,-5,'STRATEGY & FINANCE',theme.accent);
-      label('STRATEGY LOUNGE',6,2.8,-11.7,theme.accent,.5);
-      // Executive room: walnut feature wall, framed art, closed storage and a leather desk pad.
-      box(4,1.7,11.08,6.5,2.8,.08,'#85735e');
-      for(let x=1;x<7.2;x+=.24)box(x,1.7,11.01,.045,2.7,.05,'#b49d7b');
-      label('DIRECTOR  /  이정우',4,2.8,10.85,'#efeadc',.52);
-      box(4,.985,7.03,1.1,.025,.55,'#596259');
-      box(1.5,1.8,10.86,.95,1.1,.08,'#d8d2ba');box(1.5,1.8,10.79,.7,.85,.04,'#728577');
-      sofa(1.7,5.7,1.6,'#887561',Math.PI/2);strip(4,7.4,3.4);
+      printer(10.5,-3);
+      if(!centers.includes(6)){
+        shelf(6,-12,3.8,'#9e8b72');sofa(6,-9.3,3.3,'#777f6d');lowTable(6,-7.3,2,1.1);
+        board(6,-5,'STRATEGY & FINANCE',theme.accent);
+        label('STRATEGY LOUNGE',6,2.8,-11.7,theme.accent,.5);
+      }
       // Garden decking stays inside its existing footprint, away from restroom doors.
       for(let z=-10.3;z<-3.8;z+=.32)box(12.5,.17,z,4.6,.045,.27,'#ac9579');
       label('QUIET GARDEN',12.5,2.8,-11.3,'#6c8068',.5);

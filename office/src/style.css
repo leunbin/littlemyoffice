@@ -71,3 +71,11 @@
 .viewport.is-expanded .building-caption,.viewport:fullscreen .building-caption{top:96px}
 @media(max-width:850px){.expanded-floor-label{display:none}.expanded-controls{gap:5px;justify-content:space-between}.expanded-floor-nav{margin-right:auto}.expanded-floor-nav button{padding:7px 10px}}
 @media(max-width:600px){.expanded-controls{left:10px;right:10px;top:10px;padding:7px;justify-content:flex-end}.expanded-floor-nav{flex-basis:100%;margin:0;justify-content:space-between}.expanded-floor-nav button{flex:1;min-height:36px;padding:7px 6px}.expanded-floor-nav button:first-child{flex:1.8}.viewport.is-expanded .building-caption,.viewport:fullscreen .building-caption{top:124px}.is-expanded .notice:not(.error){top:124px}}
+
+.transport-status{padding:16px 18px;border-bottom:1px solid #e5e3dc;background:#f5f6f0}
+.transport-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:#4e6254}
+.transport-heading span,.transport-average{font-size:10px;color:#7b887c}
+.transport-cars{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.transport-cars>div{display:flex;flex-direction:column;gap:5px;padding:10px;border:1px solid #dbe1d6;border-radius:7px;background:#fffefa}
+.transport-cars strong{display:flex;justify-content:space-between;font-size:12px;color:#516354}
+.transport-cars span{font-size:11px;color:#617265}.transport-cars small{font-size:10px;color:#879185}
